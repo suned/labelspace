@@ -1,0 +1,9 @@
+[scripts]
+"create-stack" = "python -m create_stack"
+
+[packages]
+awscli = "*"
+aws-sam-cli = "*"
+
+[requires]
+python_version = "3.7"

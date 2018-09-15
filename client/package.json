@@ -1,0 +1,24 @@
+{
+  "license": "MIT",
+  "version": "",
+  "private": true,
+  "scripts": {
+    "serve:watch": "NODE_ENV=DEV node_modules/.bin/parcel -p 8080 watch index.html",
+    "build": "elm make src/Main.elm --output elm.compiled.js && node_modules/.bin/parcel build index.html",
+    "make:watch": "node_modules/.bin/chokidar --silent --initial 'src/**/*.elm' -c 'elm make src/Main.elm --output elm.compiled.js'",
+    "make": "elm make src/Main.elm --output elm.compiled.js",
+    "clean": "rm -rf dist .cache elm.compiled.js"
+  },
+  "dependencies": {
+    "amazon-cognito-identity-js": "2.0.26"
+  },
+  "devDependencies": {
+    "chokidar-cli": "1.2.1",
+    "parcel-bundler": "1.9.7",
+    "parcel-plugin-static": "1.0.0"
+  },
+  "parcel-plugin-static": {
+    "source": "assets",
+    "destination": "assets"
+  }
+}
