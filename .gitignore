@@ -213,3 +213,6 @@ typings/
 
 # mac
 .DS_Store
+
+# elm output
+elm.compiled.js

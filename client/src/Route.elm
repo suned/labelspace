@@ -11,6 +11,7 @@ registerRoute = "/register"
 confirmRout = "/route"
 loginRoute = "/login"
 confirmRoute username = "/confirm" ++ "/" ++ username
+appRoute = "/app"
 root = "/"
 
 
@@ -21,6 +22,7 @@ type Route
     | Confirm String
     | Login
     | NotFound
+    | App
 
 
 route : Parser (Route -> a) a
@@ -31,6 +33,7 @@ route =
         , map Register (s "register")
         , map Login (s "login")
         , map Confirm (s "confirm" </> string)
+        , map App (s "app")
         ]
 
 
