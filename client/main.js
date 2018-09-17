@@ -79,4 +79,24 @@ import('./elm.compiled.js').then(function ({Elm}) {
     
         });
     });
+
+    app.ports.readFile(function (id) {
+        const node = document.getElementById(id);
+        if (node === null) {
+            return;
+        }
+
+        const file = node.files[0];
+        const reader = new FileReader();
+
+        reader.onload = (function(event) {
+            var base64encoded = event.target.result;
+            var portData = {
+                contents: base64encoded,
+                filename: file.name
+            };
+
+            app.ports.fileContentRead.send(portData);
+        });
+    });
 });

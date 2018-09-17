@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template for labelspace backend api resources
+
+InitializeOrganizationFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: ../backend/target/aws-sam-java-rest-1.0.0.jar
+      Handler: ai.labelspace.InitializeOrganizationHandler.handleRequest
+      Runtime: java8
+      Events:
+        GetOrder:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /users/{username}/initialize
+      Method: post

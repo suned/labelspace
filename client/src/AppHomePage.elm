@@ -1,13 +1,18 @@
 module AppHomePage exposing (..)
 import Html exposing (Html, text, h1)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (type_, id)
+import Html.Events exposing (onClick, on)
 import Bulma
+import Json.Decode as Decode
+import Ports
 
 type Msg
-    = ClickUploadButton
+    = FileSelected
 
 type alias Model =
     { token: String }
+
+fileInputId = "fileInput"
 
 setToken : String -> Model -> Model
 setToken token model =
@@ -17,10 +22,10 @@ view : Model -> Html Msg
 view model = 
     Bulma.section
         [ h1 [ Bulma.titleClass ] [ text "Welcome to labelspace!" ]
-        , Bulma.field (Bulma.button [ Bulma.isLinkClass, onClick ClickUploadButton ] "upload")
+        , Bulma.file [ Bulma.isLinkClass, id fileInputId, on "change" (Decode.succeed FileSelected) ] "upload"
         ]
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
-        _ -> (model, Cmd.none)
+        FileSelected -> (model, Ports.uploadToS3 (Ports.S3UploadData fileInputId model.token))

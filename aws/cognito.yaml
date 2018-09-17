@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: labelspace backend stack
+Description: Template for labelspace cognito resources
 
 Parameters:
   StackName:

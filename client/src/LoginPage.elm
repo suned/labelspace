@@ -1,5 +1,6 @@
 module LoginPage exposing (..)
 import Html exposing (Html, text, h1)
+import Html.Attributes exposing (type_)
 import Bulma
 import Html.Attributes exposing (placeholder)
 import Html.Events exposing (onInput, onClick)
