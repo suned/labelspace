@@ -14,18 +14,13 @@ import LoginPage
 import Ports
 import AppHomePage
 import Json.Decode as Decode
+import Model exposing (Model)
+import NavBar exposing (navbar)
 
 
 
 
-type alias Model =
-  { key : Nav.Key
-  , route: Route.Route
-  , registerPageModel: RegisterPage.Model
-  , confirmUserPageModel: ConfirmUserPage.Model
-  , loginPageModel: LoginPage.Model
-  , appHomePageModel: AppHomePage.Model
-  }
+
 
 type Msg
   = LinkClicked Browser.UrlRequest
@@ -144,30 +139,6 @@ subscriptions _ =
 
 -- VIEW
 
-navbarItem : String -> String -> Html Msg
-navbarItem path label =
-    a [class "navbar-item", href path ] [ text label ]
-
-navbar : Html Msg
-navbar =
-    nav [ class "navbar is-primary" ]
-        [ div [class "navbar-brand"]
-            [ a [ class "navbar-item", href "/" ]
-                [ img [ src "./assets/logo.png", alt "labelspace" ]
-                    []
-                ]
-            ]
-        , div [ class "navbar-menu" ]
-            [ div [ class "navbar-start" ] []
-            , div [ class "navbar-end" ]
-                [ navbarItem Route.pricingRoute "pricing"
-                , navbarItem Route.registerRoute "register"
-                , navbarItem Route.loginRoute "login"
-                ]
-            ]
-        ]
-
-
 homeContent : Html Msg
 homeContent =
     Bulma.section
@@ -193,7 +164,7 @@ view : Model -> Browser.Document Msg
 view model =
   { title = "labelspace"
   , body =
-      [ navbar
+      [ navbar model
       , content model
       ]
   }

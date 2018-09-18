@@ -21,6 +21,17 @@ fileInputClass = Attributes.class "file-input"
 fileCtaClass = Attributes.class "file-cta"
 fileIconClass = Attributes.class "file-icon"
 fasFaUploadClass = Attributes.class "fas fa-upload"
+navBarItemClass = Attributes.class "navbar-item"
+isPrimaryClass = Attributes.class "is-primary"
+navBarClass = Attributes.class "navbar"
+navBarBrandClass = Attributes.class "navbar-brand"
+navbarMenuClass = Attributes.class "navbar-menu"
+navbarStartClass = Attributes.class "navbar-start"
+navbarEndClass = Attributes.class "navbar-end"
+isActiveClass = Attributes.class "is-active"
+isLoadingClass = Attributes.class "is-loading"
+isDisabledClass = Attributes.class "is-disabled"
+
 
 
 
@@ -38,6 +49,21 @@ labelledField label form =
             [ Html.text label ]
         , Html.div [ controlClass ]
             [ form ]
+        ]
+
+navbarItem : List (Html.Attribute a) -> String -> String -> Html a
+navbarItem attributes path label =
+    Html.a ([ navBarItemClass, Attributes.href path ] ++ attributes) [ Html.text label ]
+
+navbar : Html a -> List (Html a) -> Html a
+navbar brand navbarItems =
+    Html.nav [ navBarClass, isPrimaryClass ]
+        [ brand
+        , Html.div [ navbarMenuClass ]
+            [ Html.div [ navbarStartClass ] []
+            , Html.div [ navbarEndClass ]
+                navbarItems
+            ]
         ]
 
 

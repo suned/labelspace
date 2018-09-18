@@ -1,8 +1,8 @@
 module LoginPage exposing (..)
-import Html exposing (Html, text, h1)
+import Html exposing (Html, text, h1, div)
 import Html.Attributes exposing (type_)
 import Bulma
-import Html.Attributes exposing (placeholder)
+import Html.Attributes exposing (placeholder, disabled)
 import Html.Events exposing (onInput, onClick)
 import Ports
 import Json.Encode as Encode
@@ -53,5 +53,5 @@ view model =
         [ h1 [ Bulma.titleClass ] [ text "Login" ]
         , Bulma.labelledField "username" (Bulma.textInput [placeholder "username", onInput SetUsername])
         , Bulma.labelledField "password" (Bulma.passwordInput [onInput SetPassword])
-        , Bulma.field (Bulma.button [ Bulma.isLinkClass, onClick Submit ] "login")
+        , Bulma.field (Bulma.button [ Bulma.isLinkClass, Bulma.isLoadingClass, onClick Submit ] "login")
         ]

@@ -4,15 +4,10 @@ module Route exposing (..)
 import Url.Parser exposing (Parser, (</>), int, map, oneOf, s, string, parse, top)
 import Url.Parser.Query as Query
 import Url
+import Dict exposing (Dict)
 
+type alias RouteMap = (String, Route)
 
-pricingRoute = "/pricing"
-registerRoute = "/register"
-confirmRout = "/route"
-loginRoute = "/login"
-confirmRoute username = "/confirm" ++ "/" ++ username
-appRoute = "/app"
-root = "/"
 
 
 type Route
@@ -23,6 +18,12 @@ type Route
     | Login
     | NotFound
     | App
+
+pricingRoute = "/pricing"
+registerRoute = "/register"
+loginRoute = "/login"
+confirmRoute username = "/confirm" ++ "/" ++ username
+appRoute = "/app"
 
 
 route : Parser (Route -> a) a
