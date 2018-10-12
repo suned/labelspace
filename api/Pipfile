@@ -1,0 +1,15 @@
+[scripts]
+"test" = "env LS_ENV=test pytest -s test"
+
+[packages]
+boto3 = "*"
+faunadb = "*"
+lib = {path = "../lib"}
+
+[dev-packages]
+ipython = "*"
+ipdb = "*"
+pytest = "*"
+
+[requires]
+python_version = "3.6"

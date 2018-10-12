@@ -3,7 +3,7 @@
   "version": "",
   "private": true,
   "scripts": {
-    "serve:watch": "NODE_ENV=DEV node_modules/.bin/parcel -p 8080 watch index.html",
+    "serve:watch": "NODE_ENV=development node_modules/.bin/parcel -p 8080 watch index.html --open",
     "build": "elm make src/Main.elm --output elm.compiled.js && node_modules/.bin/parcel build index.html",
     "make:watch": "node_modules/.bin/chokidar --silent --initial 'src/**/*.elm' -c 'yarn make'",
     "make": "elm make --debug src/Main.elm --output elm.compiled.js",

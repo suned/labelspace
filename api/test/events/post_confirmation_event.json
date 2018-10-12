@@ -1,0 +1,11 @@
+{
+    "request": {
+        "userAttributes": {
+          "email": "test@user.com"
+        }
+    },
+    "response": {
+    },
+    "userPoolId": "some-user-pool-id",
+    "userName": "username"
+}

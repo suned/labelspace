@@ -1,29 +1,42 @@
 module RegisterPage exposing (..)
 
-import Html exposing (Html, h1, text, p)
-import Html.Attributes exposing (placeholder, value)
-import Html.Events exposing (onInput, onClick)
+import Html.Styled exposing (Html, h1, text, p, Attribute)
+import Html.Styled.Attributes exposing (placeholder, value, disabled)
+import Html.Styled.Events exposing (onInput, onClick)
 import Browser.Navigation as Nav
 import Json.Encode as Encode
 import Bulma
 import Ports
 import Route
 
+type Reason
+    = UserExists
+    | PasswordPolicyViolation
+    | InvalidEmail
+    | Unknown
+
+type State
+    = Init
+    | Pending
+    | Error Reason
+
 type alias Model =
-    { key: Nav.Key 
+    { key: Nav.Key
     , username: String
     , organization: String
     , email: String
     , password: String
+    , state: State
     }
 
-type Msg 
+type Msg
     = SetUsername String
     | SetEmail String
     | SetPassword String
     | SetOrganization String
     | Submit
-    | RegisterSuccess ()
+    | RegisterSuccess
+    | RegisterError Reason
 
 
 
@@ -41,6 +54,9 @@ setEmail email model =
 
 setUsername username model =
     { model | username = username }
+
+setState state model =
+    { model | state = state }
 
 encode : Model -> Encode.Value
 encode model =
@@ -66,9 +82,76 @@ update msg model =
         SetPassword password ->
             let newModel = model |> setPassword password
             in (newModel, Cmd.none)
-        Submit -> (model, Ports.register (encode model))
-        RegisterSuccess _ -> ( model, Nav.pushUrl model.key (Route.confirmRoute model.username) )
+        Submit -> ( model |> setState Pending, Ports.register (encode model) )
+        RegisterSuccess -> ( model |> setState Init, Nav.pushUrl model.key (Route.confirmRoute model.username) )
+        RegisterError reason ->
+            let newModel = model |> setState (Error reason)
+            in ( newModel, Cmd.none )
 
+mapError : (String, String) -> Msg
+mapError (code, message) =
+    case code of
+        "UsernameExistsException" -> RegisterError UserExists
+        "InvalidParameterException" ->
+            case message of
+            "Invalid email address format." -> RegisterError InvalidEmail
+            _ -> RegisterError PasswordPolicyViolation
+        _ -> RegisterError Unknown
+
+isEmpty : String -> Bool
+isEmpty s =
+    s == ""
+
+anyEmptyFields : Model -> Bool
+anyEmptyFields model =
+    isEmpty model.organization ||
+    isEmpty model.username ||
+    isEmpty model.email ||
+    isEmpty model.password
+
+buttonAttributes : Model -> List (Attribute Msg)
+buttonAttributes model =
+    if anyEmptyFields model then [ Bulma.isLinkClass, disabled True ]
+    else case model.state of
+        Pending -> [ Bulma.isLinkClass, Bulma.isLoadingClass ]
+        _ -> [ Bulma.isLinkClass, onClick Submit]
+
+usernameAttributes : State -> List (Attribute a)
+usernameAttributes state =
+    case state of
+        Error UserExists -> [ Bulma.isDangerClass ]
+        _ -> []
+
+usernameHelp : State -> List (Attribute a)
+usernameHelp state =
+    case state of
+        Error UserExists -> [ Bulma.isDangerClass ]
+        _ -> [ Bulma.isInvisibleClass ]
+
+passwordAttributes : State -> List (Attribute a)
+passwordAttributes state =
+    case state of
+        Error PasswordPolicyViolation -> [ Bulma.isDangerClass ]
+        _ -> []
+
+passwordHelp : State -> List (Attribute a)
+passwordHelp state =
+    case state of
+        Error PasswordPolicyViolation -> [ Bulma.isDangerClass ]
+        _ -> [ Bulma.isInvisibleClass ]
+
+passwordHelpText : State -> String
+passwordHelpText state =
+    case state of
+        Error Unknown -> "Unknown error occurred. Try again later"
+        Error PasswordPolicyViolation -> "Password must be longer than 6 characters"
+        _ -> "placeholder"
+
+emailHelp : State -> List (Attribute a)
+emailHelp state =
+    case state of
+        Error InvalidEmail -> [Bulma.isDangerClass]
+        _ -> [Bulma.isInvisibleClass]
 
 view : Model -> Html Msg
 view model =
@@ -77,9 +160,45 @@ view model =
             [ text "Sign up now!" ]
         , p [ Bulma.subtitleClass ]
             [ text "Fill in the fields below" ]
-        , Bulma.labelledField "organization" (Bulma.textInput [placeholder "organization", onInput SetOrganization, value model.organization])
-        , Bulma.labelledField "username" (Bulma.textInput [placeholder "username", onInput SetUsername, value model.username])
-        , Bulma.labelledField "email" (Bulma.textInput [placeholder "email", onInput SetEmail, value model.email])
-        , Bulma.labelledField "password" (Bulma.passwordInput [onInput SetPassword, value model.password])
-        , Bulma.field (Bulma.button [ Bulma.isLinkClass, onClick Submit] "submit")
+        , Bulma.field
+            [ Bulma.labelledField
+                "organization"
+                [ Bulma.textInput
+                    [ placeholder "organization"
+                    , onInput SetOrganization
+                    , value model.organization
+                    ]
+                ]
+            , Bulma.labelledField
+                "username"
+                [ Bulma.textInput
+                    (
+                    [ placeholder "username"
+                    , onInput SetUsername
+                    , value model.username
+                    ] ++ (usernameAttributes model.state)
+                    )
+                , Bulma.helpText (usernameHelp model.state) "Username is taken"
+                ]
+            , Bulma.labelledField
+                "email"
+                [ Bulma.textInput
+                    [ placeholder "email"
+                    , onInput SetEmail
+                    , value model.email
+                    ]
+                , Bulma.helpText (emailHelp model.state) "Not a valid email address"
+                ]
+            , Bulma.labelledField
+                "password"
+                [ Bulma.passwordInput
+                    (
+                    [ onInput SetPassword
+                    , value model.password
+                    ] ++ (passwordAttributes model.state)
+                    )
+                , Bulma.helpText (passwordHelp model.state) (passwordHelpText model.state)
+                ]
+            , Bulma.field [ Bulma.button (buttonAttributes model) "sign up" ]
+            ]
         ]

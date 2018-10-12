@@ -1,14 +1,22 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Template for labelspace backend resources
+Description: Template for labelspace api resources
 
 Parameters:
   StackName:
     Type: String
     Description: Unique name for stack
+  Database:
+    Type: String
+    Description: Name of stack database
+  DatabaseSecret:
+    Type: String
+    Description: Database secret
+
 
 Resources:
+  ######################### Cognito #########################
   UserPool:
       Type: AWS::Cognito::UserPool
       Properties:
@@ -18,7 +26,7 @@ Resources:
           SourceArn: arn:aws:ses:eu-west-1:315719867778:identity/welcome@labelspace.ai
         AliasAttributes: [email]
         LambdaConfig:
-          PreSignUp: !GetAtt CognitoPreSignupTrigger.Arn
+          PostConfirmation: !GetAtt CognitoPostConfirmationTrigger.Arn
         Policies:
           PasswordPolicy:
             MinimumLength: 8
@@ -47,7 +55,7 @@ Resources:
         GenerateSecret: false
         UserPoolId: !Ref UserPool
 
-  CognitoPreSignupTriggerRole:
+  CognitoPostConfirmationTriggerRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -78,29 +86,46 @@ Resources:
                 Resource:
                   - !Join ["/", [!GetAtt UploadBucket.Arn, "*"]]
                   - !Join ["/", [!GetAtt CollectionBucket.Arn, "*"]]
-        - PolicyName: !Sub ${StackName}-OrganizationSettingsPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:*
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
                 Resource:
-                  - !GetAtt OrganizationMeta.Arn
+                  - arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminSetUserSettings
+                  - cognito-idp:AdminUpdateUserAttributes
+                Resource:
+                  - arn:aws:cognito-idp:*:*:*
 
 
-  CognitoPreSignupTrigger:
+  CognitoPostConfirmationTrigger:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/target/scala-2.12/backend-assembly-1.0.jar
-      Handler: ai.labelspace.CognitoPreSignupTriggerHandler::handle
-      Runtime: java8
-      Role: !GetAtt CognitoPreSignupTriggerRole.Arn
+      CodeUri: ../api/deploy_package/
+      Handler: api.cognito_post_confirmation_handler.handle
+      Runtime: python3.6
+      Timeout: 15
+      Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
       Environment:
         Variables:
           COLLECTION_BUCKET: !Ref CollectionBucket
           UPLOAD_BUCKET: !Ref UploadBucket
+          DATABASE_SECRET: !Ref DatabaseSecret
+          DATABASE: !Ref Database
 
+  PostConfirmationTriggerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoPostConfirmationTrigger.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
+
+  ######################### S3 #########################
   UploadBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -111,53 +136,60 @@ Resources:
     Properties:
       BucketName: !Sub ${StackName}-labelspace-collection
 
-  OrganizationMeta:
-    Type: AWS::DynamoDB::Table
+  ######################### Api #########################
+  Api:
+    Type: AWS::Serverless::Api
     Properties:
-      AttributeDefinitions:
-        - AttributeName: organizationId
-          AttributeType: S
-        - AttributeName: uploadBucket
-          AttributeType: S
-        - AttributeName: tableName
-          AttributeType: S
-      KeySchema:
-        - AttributeName: organizationId
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 40
-        WriteCapacityUnits: 20
+      Cors:
+        # TODO More sophisticated way of allowing
+        # TODO localhost in dev
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,content-type,Authorization,authorization'"
+      StageName: dev
+      DefinitionBody:
+        swagger: 2.0
+        info:
+          title:
+            Ref: AWS::StackName
+        securityDefinitions:
+          CognitoAuthorizer:
+            type: apiKey
+            name: Authorization
+            in: header
+            x-amazon-apigateway-authtype: cognito_user_pools
+            x-amazon-apigateway-authorizer:
+              providerARNs:
+                - !GetAtt UserPool.Arn
+              type: cognito_user_pools
+        paths:
+          /labels/{labelType}:
+            post:
+              security:
+                - CognitoAuthorizer: []
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateLabelsHandler.Arn}/invocations
 
-  Annotations:
-    Type: AWS::DynamoDB::Table
+  CreateLabelsHandler:
+    Type: AWS::Serverless::Function
     Properties:
-      AttributeDefinitions:
-        - AttributeName: startNodeId
-        - AttributeType: S
-        - AttributeName: endNodeId
-          AttributeType: S
-        - AttributeName: label
-          AttributeType: S
-        - AttributeName: htmlStartIndex
-          AttributeType: N
-        - AttributeName: htmlEndIndex
-          AttributeType: N
-        - AttributeName: startIndex
-          AttributeType: N
-        - AttributeName: endIndex
-          AttributeType: N
-        - AttributeName: textS3Link
-          AttributeType: S
-        - AttributeName: htmlS3Link
-          AttributeType: S
-      KeySchema:
-        - AttributeName: nodeId
-          KeyType: HASH
-        - AttributeName: edgeId
-          KeyType: RANGE
-      ProvisionedThroughput:
-        ReadCapacityUnits: 40
-        WriteCapacityUnits: 20
+      CodeUri: ../api/deploy_package/
+      Handler: api.create_labels_handler.handle
+      Runtime: python3.6
+      Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
+      Environment:
+        Variables:
+          DATABASE_SECRET: !Ref DatabaseSecret
+          DATABASE: !Ref Database
+          USERPOOL_ID: !Ref UserPool
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /labels/{labelType}
+            Method: post
+            RestApiId: !Ref Api
 
 Outputs:
   UserPoolId:
@@ -168,3 +200,7 @@ Outputs:
     Value: !Ref UserPoolClient
     Export:
       Name: !Sub ${StackName}-UserPoolClient::Id
+  ApiUrl:
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+    Export:
+      Name: !Sub ${StackName}-ApiUrl

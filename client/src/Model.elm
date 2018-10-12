@@ -4,7 +4,7 @@ import Route
 import RegisterPage
 import ConfirmUserPage
 import LoginPage
-import AppHomePage
+import App
 
 type alias Model =
   { key : Nav.Key
@@ -12,5 +12,5 @@ type alias Model =
   , registerPageModel: RegisterPage.Model
   , confirmUserPageModel: ConfirmUserPage.Model
   , loginPageModel: LoginPage.Model
-  , appHomePageModel: AppHomePage.Model
+  , appHomePageModel: App.Model
   }

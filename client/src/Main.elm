@@ -2,9 +2,9 @@ module Main exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Styled as Html
+import Html.Styled.Attributes as Attributes
+import Html.Styled.Events as Events
 import Url
 import Bulma
 import Route
@@ -12,14 +12,11 @@ import RegisterPage
 import ConfirmUserPage
 import LoginPage
 import Ports
-import AppHomePage
+import App
 import Json.Decode as Decode
 import Model exposing (Model)
 import NavBar exposing (navbar)
-
-
-
-
+import Menu
 
 
 type Msg
@@ -28,9 +25,9 @@ type Msg
   | ConfirmUserPageMsg ConfirmUserPage.Msg
   | RegisterPageMsg RegisterPage.Msg
   | LoginPageMsg LoginPage.Msg
-  | AppHomePageMsg AppHomePage.Msg
+  | AppHomePageMsg App.Msg
 
-main : Program () Model Msg
+main : Program String Model Msg
 main =
   Browser.application
     { init = init
@@ -41,16 +38,26 @@ main =
     , onUrlRequest = LinkClicked
     }
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url key =
+init : String -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init apiUrl url key =
     let route = Route.toRoute url
-    in ( Model
-            key
-            route
-            ( RegisterPage.Model key "" "" "" "" )
-            ( ConfirmUserPage.Model "" "" ConfirmUserPage.Initial)
-            (LoginPage.Model "" "" Nothing key)
-            (AppHomePage.Model "")
+    in ( case route of
+            Route.Confirm username ->
+                Model
+                    key
+                    route
+                    ( RegisterPage.Model key "" "" "" "" RegisterPage.Init)
+                    ( ConfirmUserPage.Model "" username ConfirmUserPage.Initial)
+                    ( LoginPage.Model "" "" Nothing key LoginPage.Init)
+                    ( App.Model "" (Menu.initModel apiUrl "" [] [] [] []))
+            _ ->
+                Model
+                    key
+                    route
+                    ( RegisterPage.Model key "" "" "" "" RegisterPage.Init )
+                    ( ConfirmUserPage.Model "" "" ConfirmUserPage.Initial)
+                    ( LoginPage.Model "" "" Nothing key LoginPage.Init)
+                    ( App.Model "" (Menu.initModel apiUrl "" [] [] [] []))
        , case route of
             Route.App -> Nav.pushUrl key Route.loginRoute
             _ -> Cmd.none
@@ -76,7 +83,7 @@ setLoginModel : LoginPage.Model -> Model -> Model
 setLoginModel loginModel model =
     { model | loginPageModel = loginModel }
 
-setAppHomePageModel : AppHomePage.Model -> Model -> Model
+setAppHomePageModel : App.Model -> Model -> Model
 setAppHomePageModel appHomeModel model =
     { model | appHomePageModel = appHomeModel }
 
@@ -84,8 +91,8 @@ setAppHomePageModel appHomeModel model =
 checkToken : Model -> (Model , Cmd Msg)
 checkToken model =
     case model.loginPageModel.token of
-        Just token -> 
-            let newAppModel = model.appHomePageModel |> AppHomePage.setToken token
+        Just token ->
+            let newAppModel = model.appHomePageModel |> App.setToken token
             in (model |> setAppHomePageModel newAppModel, Cmd.none)
         Nothing -> (model, Nav.pushUrl model.key Route.loginRoute)
 
@@ -100,7 +107,7 @@ update msg model =
                 _ -> ( model, Nav.pushUrl model.key (Url.toString url) )
         Browser.External href ->
           ( model, Nav.load href )
-    UrlChanged url -> 
+    UrlChanged url ->
         let newModel = model |> setRoute (Route.toRoute url)
         in case newModel.route of
             Route.Confirm username -> let confirmModel = ConfirmUserPage.Model "" username ConfirmUserPage.Initial
@@ -118,53 +125,55 @@ update msg model =
     LoginPageMsg loginMsg ->
         let (loginModel, cmd) = LoginPage.update loginMsg model.loginPageModel
         in (model |> setLoginModel loginModel, Cmd.map (\m -> LoginPageMsg m) cmd)
-    AppHomePageMsg appHomeMsg -> 
-        let (appHomeModel, cmd) = AppHomePage.update appHomeMsg model.appHomePageModel
+    AppHomePageMsg appHomeMsg ->
+        let (appHomeModel, cmd) = App.update appHomeMsg model.appHomePageModel
         in (model |> setAppHomePageModel appHomeModel, Cmd.map (\m -> AppHomePageMsg m) cmd)
 
 
 
 -- SUBSCRIPTIONS
-
-
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ Sub.map (\m -> RegisterPageMsg m) (Ports.registerSuccess RegisterPage.RegisterSuccess)
-        , Sub.map (\m -> ConfirmUserPageMsg m) (Ports.confirmUserSuccess ConfirmUserPage.ConfirmUserSuccess)
+        [ Sub.map (\m -> RegisterPageMsg m) (Ports.registerSuccess (always RegisterPage.RegisterSuccess))
+        , Sub.map (\m -> RegisterPageMsg m) (Ports.registerFailure RegisterPage.mapError)
+        , Sub.map (\m -> ConfirmUserPageMsg m) (Ports.confirmUserSuccess (always ConfirmUserPage.ConfirmUserSuccess))
+        , Sub.map (\m -> ConfirmUserPageMsg m) (Ports.confirmUserFailure ConfirmUserPage.mapError)
         , Sub.map (\m -> LoginPageMsg m) (Ports.loginSuccess LoginPage.decodeToken)
+        , Sub.map (\m -> LoginPageMsg m) (Ports.loginFailure LoginPage.mapError)
         ]
 
 
 
 -- VIEW
-
-homeContent : Html Msg
+homeContent : Html.Html Msg
 homeContent =
     Bulma.section
-        [ h1 [ Bulma.titleClass ]
-            [ text "Easy Natural Language Annotation" ]
-        , p [ Bulma.subtitleClass ] [ text "Some placeholder text explaining why this is a great product" ]
+        [ Html.h1 [ Bulma.titleClass ]
+            [ Html.text "Easy Natural Language Annotation" ]
+        , Html.p [ Bulma.subtitleClass ] [ Html.text "Some placeholder text explaining why this is a great product" ]
         ]
 
 
-content : Model -> Html Msg
+content : Model -> Html.Html Msg
 content model =
     case model.route of
         Route.Home     -> homeContent
         Route.Register -> Html.map (\m -> RegisterPageMsg m) (RegisterPage.view model.registerPageModel)
-        Route.Pricing  -> text "pricing"
+        Route.Pricing  -> Html.text "pricing"
         Route.Login    -> Html.map (\m -> LoginPageMsg m) (LoginPage.view model.loginPageModel)
-        Route.NotFound -> text "Not Found"
+        Route.NotFound -> Html.text "Not Found"
         Route.Confirm username -> Html.map (\m -> ConfirmUserPageMsg m) (ConfirmUserPage.view model.confirmUserPageModel)
-        Route.App -> Html.map (\m -> AppHomePageMsg m) (AppHomePage.view model.appHomePageModel)
+        Route.App -> Html.map (\m -> AppHomePageMsg m) (App.view model.appHomePageModel)
 
 
 view : Model -> Browser.Document Msg
 view model =
   { title = "labelspace"
   , body =
-      [ navbar model
-      , content model
-      ]
+      List.map
+        Html.toUnstyled
+        [ navbar model
+        , content model
+        ]
   }

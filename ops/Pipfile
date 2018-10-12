@@ -1,8 +1,10 @@
 [scripts]
 "deploy-stack" = "python -m deploy_stack"
+"update-stack" = "python -m update_stack"
 "delete-stack" = "python -m delete_stack"
 "describe-stack-events" = "python -m describe_stack_events"
 "describe-stack" = "python -m describe_stack"
+"package" = "python -m package"
 
 [packages]
 awscli = "*"
@@ -10,7 +12,13 @@ aws-sam-cli = "*"
 boto3 = "*"
 faunadb = "*"
 ipython = "*"
+ipdb = "*"
 serum = "*"
+lib = {path = "../lib", editable = "true"}
+sh = "*"
+plumbum = "*"
+"ruamel.yaml" = "*"
+envparse = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.6"
