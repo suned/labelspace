@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Template for labelspace backend resources
+
+Parameters:
+  StackName:
+    Type: String
+    Description: Unique name for stack
+
+Resources:
+  UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: !Sub ${StackName}-user-pool
+        AutoVerifiedAttributes: [email]
+        EmailConfiguration:
+          SourceArn: arn:aws:ses:eu-west-1:315719867778:identity/welcome@labelspace.ai
+        AliasAttributes: [email]
+        LambdaConfig:
+          PreSignUp: !GetAtt CognitoPreSignupTrigger.Arn
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: false
+            RequireNumbers: false
+            RequireSymbols: false
+            RequireUppercase: false
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Mutable: false
+            Required: true
+          - Name: organization
+            AttributeDataType: String
+            Mutable: true
+            Required: false
+          - Name: organizationId
+            AttributeDataType: String
+            Mutable: true
+            Required: false
+
+  UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: !Sub ${StackName}-client
+        GenerateSecret: false
+        UserPoolId: !Ref UserPool
+
+  CognitoPreSignupTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${StackName}-S3BucketsPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt UploadBucket.Arn
+                  - !GetAtt CollectionBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Join ["/", [!GetAtt UploadBucket.Arn, "*"]]
+                  - !Join ["/", [!GetAtt CollectionBucket.Arn, "*"]]
+        - PolicyName: !Sub ${StackName}-OrganizationSettingsPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                Resource:
+                  - !GetAtt OrganizationMeta.Arn
+
+
+  CognitoPreSignupTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/target/scala-2.12/backend-assembly-1.0.jar
+      Handler: ai.labelspace.CognitoPreSignupTriggerHandler::handle
+      Runtime: java8
+      Role: !GetAtt CognitoPreSignupTriggerRole.Arn
+      Environment:
+        Variables:
+          COLLECTION_BUCKET: !Ref CollectionBucket
+          UPLOAD_BUCKET: !Ref UploadBucket
+
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${StackName}-labelspace-upload
+
+  CollectionBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${StackName}-labelspace-collection
+
+  OrganizationMeta:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: organizationId
+          AttributeType: S
+        - AttributeName: uploadBucket
+          AttributeType: S
+        - AttributeName: tableName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: organizationId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 40
+        WriteCapacityUnits: 20
+
+  Annotations:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: startNodeId
+        - AttributeType: S
+        - AttributeName: endNodeId
+          AttributeType: S
+        - AttributeName: label
+          AttributeType: S
+        - AttributeName: htmlStartIndex
+          AttributeType: N
+        - AttributeName: htmlEndIndex
+          AttributeType: N
+        - AttributeName: startIndex
+          AttributeType: N
+        - AttributeName: endIndex
+          AttributeType: N
+        - AttributeName: textS3Link
+          AttributeType: S
+        - AttributeName: htmlS3Link
+          AttributeType: S
+      KeySchema:
+        - AttributeName: nodeId
+          KeyType: HASH
+        - AttributeName: edgeId
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 40
+        WriteCapacityUnits: 20
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub ${StackName}-UserPool::Id
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub ${StackName}-UserPoolClient::Id

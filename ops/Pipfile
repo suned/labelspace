@@ -1,0 +1,16 @@
+[scripts]
+"deploy-stack" = "python -m deploy_stack"
+"delete-stack" = "python -m delete_stack"
+"describe-stack-events" = "python -m describe_stack_events"
+"describe-stack" = "python -m describe_stack"
+
+[packages]
+awscli = "*"
+aws-sam-cli = "*"
+boto3 = "*"
+faunadb = "*"
+ipython = "*"
+serum = "*"
+
+[requires]
+python_version = "3.7"
