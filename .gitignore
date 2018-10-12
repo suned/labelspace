@@ -237,4 +237,4 @@ project/plugins/project/
 .env*
 
 # aws sam output templates
-*.template.output.yml
+ops/*.template.output.yml
