@@ -1,9 +1,9 @@
 from typing import Optional
 
-from api.dependencies import AWSDependencies
+from backend.dependencies import AWSDependencies
 from lib.annotation_database import AnnotationDatabase
-from api.storage_manager import StorageManager
-from api.database import Database, Organization
+from backend.storage_manager import StorageManager
+from backend.database import Database, Organization
 from lib.immutable import Immutable
 
 
@@ -11,7 +11,7 @@ def handle(event,
            _,
            dependencies=AWSDependencies()
            ):
-    PostConfirmationHandler(
+    return PostConfirmationHandler(
         database=dependencies.database,
         upload_bucket=dependencies.upload_bucket,
         collection_bucket=dependencies.collection_bucket,

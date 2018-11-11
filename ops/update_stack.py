@@ -26,7 +26,7 @@ def get_bucket_name(file):
 
 def read_secret():
     env = envparse.Env()
-    env.read_envfile('../api/.env.development')
+    env.read_envfile('../backend/.env')
     return env('DATABASE_SECRET')
 
 

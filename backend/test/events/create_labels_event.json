@@ -1,0 +1,12 @@
+{
+  "field": "createLabels",
+  "identity": {
+    "claims": {
+      "custom:organizationId": "1234"
+    }
+  },
+  "arguments": {
+    "labelType": "document",
+    "label": "testLabel"
+  }
+}

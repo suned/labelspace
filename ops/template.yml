@@ -101,12 +101,11 @@ Resources:
                 Resource:
                   - arn:aws:cognito-idp:*:*:*
 
-
   CognitoPostConfirmationTrigger:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../api/deploy_package/
-      Handler: api.cognito_post_confirmation_handler.handle
+      CodeUri: ../backend/deploy_package/
+      Handler: backend.cognito_post_confirmation_handler.handle
       Runtime: python3.6
       Timeout: 15
       Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
@@ -136,46 +135,120 @@ Resources:
     Properties:
       BucketName: !Sub ${StackName}-labelspace-collection
 
-  ######################### Api #########################
-  Api:
-    Type: AWS::Serverless::Api
+  ######################### AppSync #########################
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
     Properties:
-      Cors:
-        # TODO More sophisticated way of allowing
-        # TODO localhost in dev
-        AllowOrigin: "'*'"
-        AllowHeaders: "'Content-Type,content-type,Authorization,authorization'"
-      StageName: dev
-      DefinitionBody:
-        swagger: 2.0
-        info:
-          title:
-            Ref: AWS::StackName
-        securityDefinitions:
-          CognitoAuthorizer:
-            type: apiKey
-            name: Authorization
-            in: header
-            x-amazon-apigateway-authtype: cognito_user_pools
-            x-amazon-apigateway-authorizer:
-              providerARNs:
-                - !GetAtt UserPool.Arn
-              type: cognito_user_pools
-        paths:
-          /labels/{labelType}:
-            post:
-              security:
-                - CognitoAuthorizer: []
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateLabelsHandler.Arn}/invocations
+      Name: !Sub ${StackName}-graphql-api
+      AuthenticationType: AMAZON_COGNITO_USER_POOLS
+      UserPoolConfig:
+        UserPoolId: !Ref UserPool
+        # TODO: how to set this dynamically?
+        AwsRegion: eu-west-1
+        DefaultAction: ALLOW
 
-  CreateLabelsHandler:
+  FaunaDBDataSourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - appsync.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Policies:
+      - PolicyName: !Sub ${StackName}-FaunaDBDataSourcePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              - !GetAtt FaunaDBDataSourceHandler.Arn
+
+  FaunaDBDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Name: FaunaDBDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt FaunaDBDataSourceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt FaunaDBDataSourceHandler.Arn
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  GraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Definition: |
+        schema {
+            query: Query
+            mutation: Mutation
+        }
+
+        type Query {
+            getLabels: [Label]
+        }
+
+        type Mutation {
+            createLabel(labelType: String, label: String): Label
+        }
+
+        type Label {
+            labelType: String!
+            ref: String
+            label: String!
+        }
+
+
+
+  SaveLabelResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt FaunaDBDataSource.Name
+      TypeName: Mutation
+      FieldName: createLabel
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "createLabel",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $context.result
+
+  GetLabelsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt FaunaDBDataSource.Name
+      TypeName: Query
+      FieldName: getLabels
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "getLabels",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $context.result
+
+  FaunaDBDataSourceHandler:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../api/deploy_package/
-      Handler: api.create_labels_handler.handle
+      CodeUri: ../backend/deploy_package/
+      Handler: backend.data_source_handler.handle
       Runtime: python3.6
       Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
       Environment:
@@ -183,13 +256,6 @@ Resources:
           DATABASE_SECRET: !Ref DatabaseSecret
           DATABASE: !Ref Database
           USERPOOL_ID: !Ref UserPool
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            Path: /labels/{labelType}
-            Method: post
-            RestApiId: !Ref Api
 
 Outputs:
   UserPoolId:
@@ -201,6 +267,6 @@ Outputs:
     Export:
       Name: !Sub ${StackName}-UserPoolClient::Id
   ApiUrl:
-    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+    Value: !GetAtt GraphQLApi.GraphQLUrl
     Export:
       Name: !Sub ${StackName}-ApiUrl

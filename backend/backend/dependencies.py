@@ -2,7 +2,7 @@ import os
 
 import boto3
 
-from api.database import Database, Organization
+from backend.database import Database, Organization
 from lib.annotation_database import AnnotationDatabase
 from lib.immutable import Immutable
 

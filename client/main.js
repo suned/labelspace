@@ -4,8 +4,11 @@ import {
     CognitoUser,
     AuthenticationDetails
 } from 'amazon-cognito-identity-js';
+import { AWSAppSyncClient } from 'aws-appsync';
+import gql from 'graphql-tag';
 
 import('./elm.compiled.js').then(function ({Elm}) {
+    var appSyncClient = null;
     const app = Elm.Main.init({flags: process.env.LS_API_URL});
 
     const registerHandler = function (data) {
@@ -55,7 +58,7 @@ import('./elm.compiled.js').then(function ({Elm}) {
         const cognitoUser = new CognitoUser(userData);
         cognitoUser.confirmRegistration(data.code, true, function (err, result) {
           if (err) {
-            console.log(err);
+            console.log(err.stack);
             app.ports.confirmUserFailure.send(err.code);
             return
           }
@@ -82,9 +85,20 @@ import('./elm.compiled.js').then(function ({Elm}) {
         cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: function (result) {
                 const idToken = result.getIdToken().getJwtToken();
+                appSyncClient = new AWSAppSyncClient(
+                  {
+                    disableOffline: true,
+                    url: process.env.LS_API_URL,
+                    region: 'eu-west-1',
+                    auth: {
+                      type: 'AMAZON_COGNITO_USER_POOLS',
+                      jwtToken: async () => idToken
+                    }
+                  }
+                );
+                debugger
                 app.ports.loginSuccess.send(idToken);
             },
-
             onFailure: function(err) {
                 console.log(err);
                 app.ports.loginFailure.send(err.code)
@@ -103,8 +117,27 @@ import('./elm.compiled.js').then(function ({Elm}) {
         console.log('upload file', file)
     };
 
+    const createLabelMutationHandler = function (data) {
+      const mutation = gql`
+        mutation createLabel {
+          createLabel(labelType: "${data.labelType}", label: "${data.label}") {
+            ref
+            label
+            labelType
+          }
+        }
+      `;
+      appSyncClient.mutate(
+        { mutation: mutation }
+      ).then(function (result) {
+        console.log(result);
+        app.ports.recieveLabels.send([result]);
+      }).catch(console.error);
+    };
+
     app.ports.register.subscribe(registerHandler);
     app.ports.confirmUser.subscribe(confirmUserHandler);
     app.ports.login.subscribe(loginHandler);
     app.ports.upload.subscribe(uploadHandler);
+    app.ports.createLabelMutation.subscribe(createLabelMutationHandler);
 });

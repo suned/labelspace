@@ -5,6 +5,8 @@
 boto3 = "*"
 faunadb = "*"
 lib = {path = "../lib"}
+lambda-decorators = "*"
+stringcase = "*"
 
 [dev-packages]
 ipython = "*"

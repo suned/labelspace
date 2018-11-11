@@ -1,6 +1,6 @@
 from unittest.mock import call
 
-from api.cognito_post_confirmation_handler import handle
+from backend.cognito_post_confirmation_handler import handle
 
 from faunadb import query as q
 
@@ -62,6 +62,7 @@ def test_handler_creates_organization(event_reader, mock_dependencies):
 
         event = event_reader('post_confirmation_event.json')
         handle(event, {}, dependencies=mock_dependencies)
+        assert event == event
         test_buckets_are_created()
         test_queries_are_made()
         test_user_attributes_are_updated()

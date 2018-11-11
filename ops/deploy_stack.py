@@ -74,15 +74,15 @@ def deploy(stack_name, template, secret):
     )
 
 
-def update_api_environment(secret):
-    with open('../api/.env.development', 'w') as f:
+def update_backend_environment(secret):
+    with open('../backend/.env', 'w') as f:
         f.write(f'DATABASE_SECRET={secret}\n')
 
 
 def update_local_environment(stack_name, secret):
     print_section('update env')
     update_client_environment(stack_name)
-    update_api_environment(secret)
+    update_backend_environment(secret)
 
 
 def update_client_environment(stack_name):
@@ -122,7 +122,7 @@ def print_section(section: str):
 
 def create_deploy_package():
     print_section('dependencies')
-    with plumbum.local.cwd('../api'):
+    with plumbum.local.cwd('../backend'):
         pipenv = plumbum.local['pipenv']
         requirements = pipenv['lock', '-r']
         install = pipenv[
@@ -134,7 +134,7 @@ def create_deploy_package():
         ]
         install_requirements = requirements | install
         install_requirements(stdout=sys.stdout)
-        plumbum.cmd.cp['-r', 'api', 'deploy_package'](stdout=sys.stdout)
+        plumbum.cmd.cp['-r', 'backend', 'deploy_package'](stdout=sys.stdout)
 
 
 def create_database(stack_name):
@@ -156,7 +156,7 @@ def create_database(stack_name):
 
 
 def delete_deploy_package():
-    plumbum.cmd.rm['-rf', '../api/deploy_package']()
+    plumbum.cmd.rm['-rf', '../backend/deploy_package']()
 
 
 def run(stack_name: str):

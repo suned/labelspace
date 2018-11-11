@@ -1,16 +1,18 @@
-module Model exposing (..)
+module Model exposing (Model)
+
+import AppModel
 import Browser.Navigation as Nav
-import Route
-import RegisterPage
 import ConfirmUserPage
 import LoginPage
-import App
+import RegisterPage
+import Route
+
 
 type alias Model =
-  { key : Nav.Key
-  , route: Route.Route
-  , registerPageModel: RegisterPage.Model
-  , confirmUserPageModel: ConfirmUserPage.Model
-  , loginPageModel: LoginPage.Model
-  , appHomePageModel: App.Model
-  }
+    { key : Nav.Key
+    , route : Route.Route
+    , registerPageModel : RegisterPage.Model
+    , confirmUserPageModel : ConfirmUserPage.Model
+    , loginPageModel : LoginPage.Model
+    , appHomePageModel : AppModel.Model
+    }

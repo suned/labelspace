@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, create_autospec
 
 from faunadb.client import FaunaClient
 
-from api.database import Database, Organization
-from api.dependencies import Dependencies
+from backend.database import Database, Organization
+from backend.dependencies import Dependencies
 from lib.annotation_database import AnnotationDatabase
 from lib.fauna_database import Secret
 

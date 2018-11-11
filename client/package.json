@@ -10,15 +10,27 @@
     "clean": "rm -rf dist .cache elm.compiled.js"
   },
   "dependencies": {
-    "amazon-cognito-identity-js": "2.0.26"
+    "amazon-cognito-identity-js": "2.0.26",
+    "apollo-cache-inmemory": "^1.1.0",
+    "apollo-client": "^2.0.3",
+    "apollo-link": "^1.0.3",
+    "apollo-link-http": "^1.2.0",
+    "aws-appsync": "^1.4.0",
+    "aws-sdk": "^2.141.0",
+    "graphql": "^0.11.7",
+    "graphql-tag": "^2.5.0"
   },
   "devDependencies": {
     "chokidar-cli": "1.2.1",
-    "parcel-bundler": "1.9.7",
+    "parcel-bundler": "1.10.3",
     "parcel-plugin-static": "1.0.0"
   },
   "parcel-plugin-static": {
     "source": "assets",
     "destination": "assets"
-  }
+  },
+  "browserslist": [
+    "Chrome 69",
+    "Firefox 62"
+  ]
 }
