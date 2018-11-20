@@ -85,7 +85,7 @@ update msg model =
                     case Json.Decode.decodeValue Decoders.labelDecoder json of
                         Err reason ->
                             Debug.log
-                                ("Error while decoding label json: " ++ reason)
+                                "Error while decoding label json: "
                                 ( model.addLabelMenu
                                     |> setState AppModel.AddLabelMenuError
                                     |> AppModel.asAddLabelMenu model
@@ -95,7 +95,7 @@ update msg model =
                         Ok label ->
                             ( model.addLabelMenu
                                 |> toggleIsOpen
-                                |> AppModel.asAddLabelMenu (AppModel.addDocumentLabel label model)
+                                |> AppModel.asAddLabelMenu (AppModel.addDocumentLabel (AppModel.DocumentLabel label) model)
                             , Cmd.none
                             )
 

@@ -7,6 +7,7 @@ module AppModel exposing
     , AppSyncRequest
     , DocumentLabel(..)
     , Label
+    , LabelMenu
     , LabelType(..)
     , Menu
     , MenuItem(..)
@@ -16,6 +17,7 @@ module AppModel exposing
     , RelationLabel(..)
     , Request(..)
     , SpanLabel(..)
+    , addDocumentLabel
     , asAddLabelMenu
     , initAddLabelMenu
     , initModel
@@ -91,10 +93,18 @@ type MenuItem
         }
 
 
+type alias LabelMenu =
+    { isOpen : Bool
+    , documentLabels : MenuItem
+    , spanLabels : MenuItem
+    , relationLables : MenuItem
+    }
+
+
 type alias Menu =
     { isOpen : Bool
     , documents : MenuItem
-    , labels : MenuItem
+    , labels : LabelMenu
     , team : MenuItem
     }
 
@@ -176,6 +186,39 @@ initAddLabelMenu =
     AddLabelMenu False Nothing "" AddLabelMenuInit
 
 
+addDocumentLabelToMenu : DocumentLabel -> Menu -> Menu
+addDocumentLabelToMenu (DocumentLabel { ref, label }) menu =
+    let
+        oldLabelsMenu =
+            menu.labels
+
+        (MenuItem oldDocumentLabels) =
+            menu.labels.documentLabels
+
+        subItems =
+            labelMenuItem label :: oldDocumentLabels.subItems
+
+        newDocumentLabels =
+            MenuItem { oldDocumentLabels | subItems = subItems }
+
+        newLabelsMenu =
+            { oldLabelsMenu | documentLabels = newDocumentLabels }
+    in
+    { menu | labels = newLabelsMenu }
+
+
+addDocumentLabel : DocumentLabel -> Model -> Model
+addDocumentLabel label model =
+    let
+        newMenu =
+            addDocumentLabelToMenu label model.menu
+
+        oldLabels =
+            model.documentLabels
+    in
+    { model | menu = newMenu, documentLabels = label :: oldLabels }
+
+
 folderMenuItem : String -> MenuItem
 folderMenuItem documentLabel =
     MenuItem { label = documentLabel, icon = "fas fa-folder", isOpen = False, subItems = [], addItem = Nothing }
@@ -216,48 +259,6 @@ initModel apiUrl token documentLabels spanLabels relationLabels team =
                         |> List.map folderMenuItem
                 , addItem = Just AddDocumentsMenuItem
                 }
-        , labels =
-            MenuItem
-                { label = "labels"
-                , icon = "fas fa-tags"
-                , isOpen = True
-                , addItem = Just AddLabelMenuItem
-                , subItems =
-                    [ MenuItem
-                        { label = "document labels"
-                        , icon = "fas fa-file"
-                        , isOpen = False
-                        , addItem = Nothing
-                        , subItems =
-                            List.map
-                                (\(DocumentLabel { ref, label }) -> label)
-                                documentLabels
-                                |> List.map labelMenuItem
-                        }
-                    , MenuItem
-                        { label = "span labels"
-                        , icon = "fas fa-highlighter"
-                        , isOpen = False
-                        , addItem = Nothing
-                        , subItems =
-                            List.map
-                                (\(SpanLabel { ref, label }) -> label)
-                                spanLabels
-                                |> List.map labelMenuItem
-                        }
-                    , MenuItem
-                        { label = "relation labels"
-                        , icon = "fas fa-link"
-                        , isOpen = False
-                        , addItem = Nothing
-                        , subItems =
-                            List.map
-                                (\(RelationLabel { ref, label }) -> label)
-                                relationLabels
-                                |> List.map labelMenuItem
-                        }
-                    ]
-                }
         , team =
             MenuItem
                 { label = "team"
@@ -266,5 +267,44 @@ initModel apiUrl token documentLabels spanLabels relationLabels team =
                 , addItem = Just AddTeamMemberMenuItem
                 , subItems = List.map teamMemberMenuItem team
                 }
+        , labels =
+            { isOpen = False
+            , documentLabels =
+                MenuItem
+                    { label = "document labels"
+                    , icon = "fas fa-file"
+                    , isOpen = False
+                    , addItem = Nothing
+                    , subItems =
+                        List.map
+                            (\(DocumentLabel { ref, label }) -> label)
+                            documentLabels
+                            |> List.map labelMenuItem
+                    }
+            , spanLabels =
+                MenuItem
+                    { label = "span labels"
+                    , icon = "fas fa-highlighter"
+                    , isOpen = False
+                    , addItem = Nothing
+                    , subItems =
+                        List.map
+                            (\(SpanLabel { ref, label }) -> label)
+                            spanLabels
+                            |> List.map labelMenuItem
+                    }
+            , relationLables =
+                MenuItem
+                    { label = "relation labels"
+                    , icon = "fas fa-link"
+                    , isOpen = False
+                    , addItem = Nothing
+                    , subItems =
+                        List.map
+                            (\(RelationLabel { ref, label }) -> label)
+                            relationLabels
+                            |> List.map labelMenuItem
+                    }
+            }
         }
     }

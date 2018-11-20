@@ -1,4 +1,20 @@
-module Menu exposing (addDocumentMenuItem, addMenuItem, addSubItems, closedMenu, encode, fileInputId, menu, menuItemHtml, menuToggleHoverStyle, openMenu, setMenu, toggleAddLabelModal, toggleMenu, toggleMenuItem, update)
+module Menu exposing
+    ( addDocumentMenuItem
+    , addMenuItem
+    , addSubItems
+    , closedMenu
+    , encode
+    , fileInputId
+    , menu
+    , menuItemHtml
+    , menuToggleHoverStyle
+    , openMenu
+    , setMenu
+    , toggleAddLabelModal
+    , toggleMenu
+    , toggleMenuItem
+    , update
+    )
 
 import AddLabelMenu
 import AppModel
@@ -129,6 +145,25 @@ menuItemHtml menuItem =
                 )
 
 
+labelMenuHtml : AppModel.LabelMenu -> Html.Html AppModel.Msg
+labelMenuHtml labelMenu =
+    let
+        labelMenuItem =
+            AppModel.MenuItem
+                { addItem = Just AppModel.AddLabelMenuItem
+                , label = "labels"
+                , icon = "fas fa-tags"
+                , subItems =
+                    [ labelMenu.documentLabels
+                    , labelMenu.spanLabels
+                    , labelMenu.relationLables
+                    ]
+                , isOpen = labelMenu.isOpen
+                }
+    in
+    menuItemHtml labelMenuItem
+
+
 openMenu : AppModel.Model -> Html.Html AppModel.Msg
 openMenu model =
     Html.div [ Bulma.columnsClass ]
@@ -136,7 +171,7 @@ openMenu model =
             [ Html.aside [ Bulma.menuClass ]
                 [ Html.ul [ Bulma.menuListClass ]
                     [ menuItemHtml model.menu.documents
-                    , menuItemHtml model.menu.labels
+                    , labelMenuHtml model.menu.labels
                     , menuItemHtml model.menu.team
                     ]
                 ]
@@ -174,12 +209,31 @@ toggleMenuItem targetMenuItem menuItem =
                 AppModel.MenuItem { old | subItems = List.map (toggleMenuItem targetMenuItem) old.subItems }
 
 
+toggleMenu : AppModel.Menu -> AppModel.MenuItem -> AppModel.Menu
 toggleMenu menuModel menuItem =
     let
-        ( toggledDocuments, toggledLabels, toggledTeam ) =
-            ( toggleMenuItem menuItem menuModel.documents, toggleMenuItem menuItem menuModel.labels, toggleMenuItem menuItem menuModel.team )
+        toggledDocuments =
+            toggleMenuItem menuItem menuModel.documents
+
+        toggledTeam =
+            toggleMenuItem menuItem menuModel.team
+
+        toggledDocumentLabels =
+            toggleMenuItem menuItem menuModel.labels.documentLabels
+
+        toggledSpanLabels =
+            toggleMenuItem menuItem menuModel.labels.spanLabels
+
+        toggledRelationLabels =
+            toggleMenuItem menuItem menuModel.labels.relationLables
+
+        oldLabelsMenu =
+            menuModel.labels
+
+        newLabelsMenu =
+            { oldLabelsMenu | documentLabels = toggledDocumentLabels, spanLabels = toggledSpanLabels, relationLables = toggledRelationLabels }
     in
-    { menuModel | documents = toggledDocuments, labels = toggledLabels, team = toggledTeam }
+    { menuModel | documents = toggledDocuments, labels = newLabelsMenu, team = toggledTeam }
 
 
 toggleAddLabelModal model =
