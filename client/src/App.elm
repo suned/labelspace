@@ -2,7 +2,7 @@ module App exposing (fileInputId, labelEditor, setMenuModel, setToken, update, v
 
 import AddLabelMenu
 import AppModel
-import AppMsg
+import AppSync
 import Bulma
 import Css
 import Html.Styled as Html
@@ -11,6 +11,7 @@ import Html.Styled.Events as Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Menu
+import Porter
 import Ports
 
 
@@ -35,7 +36,7 @@ labelEditor model =
         ]
 
 
-view : AppModel.Model -> Html.Html AppMsg.Msg
+view : AppModel.Model -> Html.Html AppModel.Msg
 view model =
     Html.div [ Bulma.columnsClass ]
         [ Menu.menu model
@@ -43,15 +44,18 @@ view model =
         ]
 
 
-update : AppMsg.Msg -> AppModel.Model -> ( AppModel.Model, Cmd AppMsg.Msg )
+update : AppModel.Msg -> AppModel.Model -> ( AppModel.Model, Cmd AppModel.Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "url" model.apiUrl
-    in
     case msg of
-        AppMsg.MenuMsg menuMsg ->
+        AppModel.MenuMsg menuMsg ->
             Menu.update menuMsg model
 
-        AppMsg.AddLabelMenuMsg addLabelMenuMsg ->
+        AppModel.AddLabelMenuMsg addLabelMenuMsg ->
             AddLabelMenu.update addLabelMenuMsg model
+
+        AppModel.AppSyncMsg (AppModel.PorterMsg porterMsg) ->
+            let
+                ( porterModel, porterCmd ) =
+                    Porter.update AppSync.porterConfig porterMsg model.porter
+            in
+            ( { model | porter = porterModel }, porterCmd )

@@ -1,13 +1,14 @@
 module AddLabelMenu exposing (labelType2String, modal, setLabel, setLabelType, setState, toggleIsOpen, update)
 
-import ApiClient
 import AppModel
-import AppMsg
+import AppSync
 import Bulma
+import Decoders
 import Html.Styled as Html
 import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
 import Http
+import Json.Decode
 
 
 labelType2String labelType =
@@ -39,72 +40,67 @@ setLabelType labelType model =
     { model | labelType = Just labelType }
 
 
-update : AppMsg.AddLabelMenuMsg -> AppModel.Model -> ( AppModel.Model, Cmd AppMsg.Msg )
+update : AppModel.AddLabelMenuMsg -> AppModel.Model -> ( AppModel.Model, Cmd AppModel.Msg )
 update msg model =
     case msg of
-        AppMsg.ToggleAddLabelMenu ->
+        AppModel.ToggleAddLabelMenu ->
             ( model |> AppModel.setAddLabelMenu AppModel.initAddLabelMenu, Cmd.none )
 
-        AppMsg.SaveLabel ->
+        AppModel.SaveLabel ->
             ( model.addLabelMenu
                 |> setState AppModel.AddLabelMenuPending
                 |> AppModel.asAddLabelMenu model
             , case model.addLabelMenu.labelType of
                 Just AppModel.Document ->
-                    ApiClient.createLabel
-                        model.apiUrl
-                        model.token
-                        (ApiClient.DocumentLabel { ref = Nothing, label = model.addLabelMenu.label })
-                        (AppMsg.AddLabelMenuMsg
-                            << AppMsg.Response
-                        )
+                    AppSync.send
+                        (AppModel.AddLabelMenuMsg << AppModel.CreateDocumentLabelResponse)
+                        (AppModel.CreateDocumentLabelRequest { ref = Nothing, label = model.addLabelMenu.label })
 
                 Just AppModel.Span ->
-                    ApiClient.createLabel
-                        model.apiUrl
-                        model.token
-                        (ApiClient.SpanLabel { ref = Nothing, label = model.addLabelMenu.label })
-                        (AppMsg.AddLabelMenuMsg
-                            << AppMsg.Response
-                        )
+                    Debug.todo "Not implemented"
 
                 Just AppModel.Relation ->
-                    ApiClient.createLabel
-                        model.apiUrl
-                        model.token
-                        (ApiClient.SpanLabel { ref = Nothing, label = model.addLabelMenu.label })
-                        (AppMsg.AddLabelMenuMsg
-                            << AppMsg.Response
-                        )
+                    Cmd.none
 
                 Nothing ->
-                    Debug.todo "redesign this"
+                    Debug.todo "Save label button clicked while no label type was selected. This shouldn't be possible: redesign."
             )
 
-        AppMsg.SetLabel label ->
+        AppModel.SetLabel label ->
             ( model.addLabelMenu |> setLabel label |> AppModel.asAddLabelMenu model, Cmd.none )
 
-        AppMsg.Select labelType ->
+        AppModel.Select labelType ->
             ( model.addLabelMenu |> setLabelType labelType |> AppModel.asAddLabelMenu model, Cmd.none )
 
-        AppMsg.Response result ->
+        AppModel.CreateDocumentLabelResponse result ->
             case result of
-                Ok label ->
-                    ( AppModel.initAddLabelMenu
+                Err _ ->
+                    ( model.addLabelMenu
+                        |> setState AppModel.AddLabelMenuError
                         |> AppModel.asAddLabelMenu model
-                        |> AppModel.addLabel label
                     , Cmd.none
                     )
 
-                Err cause ->
-                    let
-                        _ =
-                            Debug.log "cause" cause
-                    in
-                    ( model.addLabelMenu |> setState AppModel.AddLabelMenuError |> AppModel.asAddLabelMenu model, Cmd.none )
+                Ok json ->
+                    case Json.Decode.decodeValue Decoders.labelDecoder json of
+                        Err reason ->
+                            Debug.log
+                                ("Error while decoding label json: " ++ reason)
+                                ( model.addLabelMenu
+                                    |> setState AppModel.AddLabelMenuError
+                                    |> AppModel.asAddLabelMenu model
+                                , Cmd.none
+                                )
+
+                        Ok label ->
+                            ( model.addLabelMenu
+                                |> toggleIsOpen
+                                |> AppModel.asAddLabelMenu (AppModel.addDocumentLabel label model)
+                            , Cmd.none
+                            )
 
 
-modal : AppModel.AddLabelMenu -> Html.Html AppMsg.Msg
+modal : AppModel.AddLabelMenu -> Html.Html AppModel.Msg
 modal model =
     Html.div
         ([ Bulma.modalClass ]
@@ -122,8 +118,8 @@ modal model =
                 , Html.button
                     [ Bulma.deleteClass
                     , Events.onClick
-                        (AppMsg.AddLabelMenuMsg
-                            AppMsg.ToggleAddLabelMenu
+                        (AppModel.AddLabelMenuMsg
+                            AppModel.ToggleAddLabelMenu
                         )
                     ]
                     []
@@ -151,18 +147,18 @@ modal model =
                                             )
                                             [ Html.option
                                                 [ Attributes.value "document label"
-                                                , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppModel.Document))
+                                                , Events.onClick (AppModel.AddLabelMenuMsg (AppModel.Select AppModel.Document))
                                                 ]
                                                 [ Html.span [ Bulma.iconClass ]
                                                     [ Html.i [ Attributes.class "fas fa-file" ] [] ]
                                                 , Html.text (labelType2String AppModel.Document)
                                                 ]
-                                            , Html.option [ Attributes.value "span label", Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppModel.Span)) ]
+                                            , Html.option [ Attributes.value "span label", Events.onClick (AppModel.AddLabelMenuMsg (AppModel.Select AppModel.Span)) ]
                                                 [ Html.span [ Bulma.iconClass ]
                                                     [ Html.i [ Attributes.class "fas fa-highlighter" ] [] ]
                                                 , Html.text (labelType2String AppModel.Span)
                                                 ]
-                                            , Html.option [ Attributes.value "relation label", Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppModel.Relation)) ]
+                                            , Html.option [ Attributes.value "relation label", Events.onClick (AppModel.AddLabelMenuMsg (AppModel.Select AppModel.Relation)) ]
                                                 [ Html.span [ Bulma.iconClass ]
                                                     [ Html.i [ Attributes.class "fas fa-link" ] [] ]
                                                 , Html.text (labelType2String AppModel.Relation)
@@ -181,7 +177,7 @@ modal model =
                                         [ Bulma.inputClass
                                         , Attributes.placeholder "label"
                                         , Attributes.value model.label
-                                        , Events.onInput (AppMsg.AddLabelMenuMsg << AppMsg.SetLabel)
+                                        , Events.onInput (AppModel.AddLabelMenuMsg << AppModel.SetLabel)
                                         ]
                                         []
                                     ]
@@ -194,7 +190,7 @@ modal model =
                 [ Html.button
                     ([ Bulma.buttonClass
                      , Bulma.isSuccessClass
-                     , Events.onClick (AppMsg.AddLabelMenuMsg AppMsg.SaveLabel)
+                     , Events.onClick (AppModel.AddLabelMenuMsg AppModel.SaveLabel)
                      ]
                         ++ (case ( model.label, model.state, model.labelType ) of
                                 ( "", _, _ ) ->

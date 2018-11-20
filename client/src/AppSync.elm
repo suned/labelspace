@@ -1,24 +1,10 @@
-module AppSync exposing (AppSyncData, AppSyncMsg(..), sendToAppsync)
+module AppSync exposing (porterConfig, send)
 
 import AppModel
 import Json.Decode
 import Json.Encode
+import Porter
 import Ports
-
-
-type AppSyncMsg
-    = CreateDocumentLabel AppModel.Label
-
-
-type Msg
-    = ReceiveDocumentLabel (Result String AppModel.Label)
-    | UnknownAppSyncKey String
-
-
-type alias AppSyncData =
-    { operation : String
-    , data : Json.Encode.Value
-    }
 
 
 maybeEncoder : (a -> Json.Encode.Value) -> Maybe a -> Json.Encode.Value
@@ -32,52 +18,55 @@ maybeEncoder value maybe =
 
 
 labelEncoder : AppModel.Label -> String -> Json.Encode.Value
-labelEncoder label type_ =
+labelEncoder label labelType =
     Json.Encode.object
         [ ( "label", Json.Encode.string label.label )
-        , ( "labelType", Json.Encode.string type_ )
+        , ( "labelType", Json.Encode.string labelType )
         , ( "ref", maybeEncoder Json.Encode.string label.ref )
         ]
 
 
-sendToAppsync : AppSyncMsg -> Cmd msg
-sendToAppsync appSyncMsg =
-    case appSyncMsg of
-        CreateDocumentLabel label ->
-            { operation = "CreateDocumentLabel"
-            , data = labelEncoder label "document"
-            }
-                |> toCmd
+requestEncoder : AppModel.AppSyncRequest -> Json.Encode.Value
+requestEncoder { operation, request } =
+    case request of
+        AppModel.CreateDocumentLabelRequest label ->
+            Json.Encode.object
+                [ ( "operation", Json.Encode.string operation )
+                , ( "data", labelEncoder label "document" )
+                ]
 
 
-toCmd : AppSyncData -> Cmd msg
-toCmd { operation, data } =
-    [ ( "key", Json.Encode.string operation )
-    , ( "data", data )
-    ]
-        |> Json.Encode.object
-        |> Ports.toAppSync
+handleError : Maybe String -> Json.Decode.Decoder (Result String Json.Decode.Value)
+handleError result =
+    case result of
+        Just reason ->
+            Json.Decode.succeed (Err reason)
+
+        Nothing ->
+            Json.Decode.map Ok (Json.Decode.field "data" Json.Decode.value)
 
 
-dataDecoder : Json.Decode.Decoder a -> Json.Decode.Decoder a
-dataDecoder =
-    Json.Decode.field "data"
+responseDecoder : Json.Decode.Decoder (Result String Json.Decode.Value)
+responseDecoder =
+    Json.Decode.andThen handleError (Json.Decode.maybe (Json.Decode.field "error" Json.Decode.string))
 
 
-labelDecoder : Json.Decode.Decoder AppModel.Label
-labelDecoder =
-    Json.Decode.map2
-        AppModel.Label
-        (Json.Decode.nullable (Json.Decode.field "ref" Json.Decode.string))
-        (Json.Decode.field "label" Json.Decode.string)
+
+-- TODO find a way to avoid passing Json.Decode.Value through to Caller Here
 
 
-toAppSyncMsg : String -> Json.Decode.Decoder Msg
-toAppSyncMsg key =
-    case key of
-        "CreateDocumentLabel" ->
-            dataDecoder labelDecoder
-                |> Json.Decode.map (Ok >> ReceiveDocumentLabel)
+porterConfig : Porter.Config AppModel.AppSyncRequest (Result String Json.Decode.Value) AppModel.Msg
+porterConfig =
+    { outgoingPort = Ports.toAppSync
+    , incomingPort = Ports.fromAppSync
+    , encodeRequest = requestEncoder
+    , decodeResponse = responseDecoder
+    , porterMsg = AppModel.AppSyncMsg << AppModel.PorterMsg
+    }
 
-        _ ->
-            Json.Decode.succeed (UnknownAppSyncKey key)
+
+send : (Result String Json.Decode.Value -> AppModel.Msg) -> AppModel.Request -> Cmd AppModel.Msg
+send msg request =
+    case request of
+        AppModel.CreateDocumentLabelRequest _ ->
+            Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateDocumentLabel", request = request })

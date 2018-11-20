@@ -2,7 +2,6 @@ module Menu exposing (addDocumentMenuItem, addMenuItem, addSubItems, closedMenu,
 
 import AddLabelMenu
 import AppModel
-import AppMsg
 import Bulma
 import Css
 import Html.Styled as Html
@@ -38,7 +37,7 @@ addDocumentMenuItem =
             [ Attributes.id fileInputId
             , Attributes.type_ "file"
             , Attributes.css [ Css.display Css.none ]
-            , Events.on "change" (Decode.succeed (AppMsg.MenuMsg (AppMsg.ToggleAddMenu AppModel.AddDocumentsMenuItem)))
+            , Events.on "change" (Decode.succeed (AppModel.MenuMsg (AppModel.ToggleAddMenu AppModel.AddDocumentsMenuItem)))
             ]
             []
         , Html.label [ Attributes.for fileInputId ]
@@ -71,7 +70,7 @@ addMenuItem addMenuItemType =
         [ Html.a
             [ Attributes.href ""
             , Bulma.hasTextLinkClass
-            , Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleAddMenu addMenuItemType))
+            , Events.onClick (AppModel.MenuMsg (AppModel.ToggleAddMenu addMenuItemType))
             ]
             [ Html.span [ Bulma.iconClass ]
                 [ Html.i [ Attributes.class "fas fa-plus" ] [] ]
@@ -100,7 +99,7 @@ addSubItems addItem subItems =
             [ Html.ul [] subMenuHtml ]
 
 
-menuItemHtml : AppModel.MenuItem -> Html.Html AppMsg.Msg
+menuItemHtml : AppModel.MenuItem -> Html.Html AppModel.Msg
 menuItemHtml menuItem =
     case menuItem of
         AppModel.MenuItem { label, icon, isOpen, addItem, subItems } ->
@@ -113,7 +112,7 @@ menuItemHtml menuItem =
                                     []
 
                                 _ ->
-                                    [ Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleMenuItem menuItem)) ]
+                                    [ Events.onClick (AppModel.MenuMsg (AppModel.ToggleMenuItem menuItem)) ]
                            )
                     )
                     [ Html.span [ Bulma.iconClass ]
@@ -130,7 +129,7 @@ menuItemHtml menuItem =
                 )
 
 
-openMenu : AppModel.Model -> Html.Html AppMsg.Msg
+openMenu : AppModel.Model -> Html.Html AppModel.Msg
 openMenu model =
     Html.div [ Bulma.columnsClass ]
         [ Html.div [ Bulma.columnClass ]
@@ -143,7 +142,7 @@ openMenu model =
                 ]
             ]
         , Html.div [ Bulma.columnClass, Bulma.isNarrowClass ]
-            [ Html.span [ Bulma.iconClass, Events.onClick (AppMsg.MenuMsg AppMsg.ToggleMenu), Bulma.isPulledRightClass, menuToggleHoverStyle ]
+            [ Html.span [ Bulma.iconClass, Events.onClick (AppModel.MenuMsg AppModel.ToggleMenu), Bulma.isPulledRightClass, menuToggleHoverStyle ]
                 [ Html.i [ Attributes.class "fas fa-angle-double-left" ] [] ]
             ]
         ]
@@ -153,7 +152,7 @@ closedMenu =
     Html.aside [ Bulma.menuClass ]
         [ Html.span
             [ Bulma.iconClass
-            , Events.onClick (AppMsg.MenuMsg AppMsg.ToggleMenu)
+            , Events.onClick (AppModel.MenuMsg AppModel.ToggleMenu)
             , menuToggleHoverStyle
             ]
             [ Html.i [ Attributes.class "fas fa-angle-double-right" ] [] ]
@@ -189,31 +188,31 @@ toggleAddLabelModal model =
 
 update msg model =
     case msg of
-        AppMsg.ToggleAddMenu AppModel.AddDocumentsMenuItem ->
+        AppModel.ToggleAddMenu AppModel.AddDocumentsMenuItem ->
             ( model, Ports.upload (encode model) )
 
-        AppMsg.ToggleAddMenu AppModel.AddLabelMenuItem ->
+        AppModel.ToggleAddMenu AppModel.AddLabelMenuItem ->
             let
                 newAddLabelMenuModel =
                     AddLabelMenu.toggleIsOpen model.addLabelMenu
             in
             ( { model | addLabelMenu = newAddLabelMenuModel }, Cmd.none )
 
-        AppMsg.ToggleMenu ->
+        AppModel.ToggleMenu ->
             let
                 newMenu =
                     model.menu |> (\m -> { m | isOpen = not m.isOpen })
             in
             ( { model | menu = newMenu }, Cmd.none )
 
-        AppMsg.ToggleMenuItem menuItem ->
+        AppModel.ToggleMenuItem menuItem ->
             ( model |> setMenu (toggleMenu model.menu menuItem), Cmd.none )
 
         _ ->
             ( model, Cmd.none )
 
 
-menu : AppModel.Model -> Html.Html AppMsg.Msg
+menu : AppModel.Model -> Html.Html AppModel.Msg
 menu model =
     Html.div
         [ Bulma.columnClass

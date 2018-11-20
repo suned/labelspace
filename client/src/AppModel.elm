@@ -1,16 +1,21 @@
 module AppModel exposing
     ( AddLabelMenu
+    , AddLabelMenuMsg(..)
     , AddLabelMenuState(..)
     , AddMenuItem(..)
+    , AppSyncMsg(..)
+    , AppSyncRequest
     , DocumentLabel(..)
     , Label
     , LabelType(..)
     , Menu
     , MenuItem(..)
+    , MenuMsg(..)
     , Model
+    , Msg(..)
     , RelationLabel(..)
+    , Request(..)
     , SpanLabel(..)
-    , addLabel
     , asAddLabelMenu
     , initAddLabelMenu
     , initModel
@@ -20,7 +25,34 @@ module AppModel exposing
     , setToken
     )
 
-import ApiClient
+import Http
+import Json.Decode
+import Porter
+
+
+type AppSyncMsg
+    = PorterMsg (Porter.Msg AppSyncRequest (Result String Json.Decode.Value) Msg)
+
+
+type Msg
+    = MenuMsg MenuMsg
+    | AddLabelMenuMsg AddLabelMenuMsg
+    | AppSyncMsg AppSyncMsg
+
+
+type MenuMsg
+    = ToggleMenu
+    | ToggleMenuItem MenuItem
+    | ToggleAddMenu AddMenuItem
+    | OpenDocument
+
+
+type AddLabelMenuMsg
+    = ToggleAddLabelMenu
+    | SetLabel String
+    | Select LabelType
+    | SaveLabel
+    | CreateDocumentLabelResponse (Result String Json.Decode.Value)
 
 
 type LabelType
@@ -91,6 +123,16 @@ type alias Editor =
     {}
 
 
+type alias AppSyncRequest =
+    { operation : String
+    , request : Request
+    }
+
+
+type Request
+    = CreateDocumentLabelRequest Label
+
+
 type alias Model =
     { token : String
     , apiUrl : String
@@ -101,6 +143,7 @@ type alias Model =
     , spanLabels : List SpanLabel
     , relationLabels : List RelationLabel
     , editor : Editor
+    , porter : Porter.Model AppSyncRequest (Result String Json.Decode.Value) Msg
     }
 
 
@@ -148,22 +191,10 @@ labelMenuItem label =
     MenuItem { label = label, icon = "fas fa-tag", isOpen = False, subItems = [], addItem = Nothing }
 
 
-addLabel : ApiClient.Label -> Model -> Model
-addLabel apiLabel model =
-    case apiLabel of
-        ApiClient.DocumentLabel { ref, label } ->
-            { model | documentLabels = model.documentLabels ++ [ DocumentLabel { ref = ref, label = label } ] }
-
-        ApiClient.SpanLabel { ref, label } ->
-            { model | documentLabels = model.documentLabels ++ [ DocumentLabel { ref = ref, label = label } ] }
-
-        ApiClient.RelationLabel { ref, label } ->
-            { model | documentLabels = model.documentLabels ++ [ DocumentLabel { ref = ref, label = label } ] }
-
-
 initModel : String -> String -> List DocumentLabel -> List SpanLabel -> List RelationLabel -> List String -> Model
 initModel apiUrl token documentLabels spanLabels relationLabels team =
     { token = token
+    , porter = Porter.init
     , apiUrl = apiUrl
     , editor = {}
     , documentLabels = documentLabels

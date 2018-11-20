@@ -2,7 +2,7 @@ module Main exposing (Msg(..), checkToken, content, homeContent, init, main, set
 
 import App
 import AppModel
-import AppMsg
+import AppSync
 import Browser
 import Browser.Navigation as Nav
 import Bulma
@@ -15,6 +15,7 @@ import LoginPage
 import Menu
 import Model exposing (Model)
 import NavBar exposing (navbar)
+import Porter
 import Ports
 import RegisterPage
 import Route
@@ -27,7 +28,7 @@ type Msg
     | ConfirmUserPageMsg ConfirmUserPage.Msg
     | RegisterPageMsg RegisterPage.Msg
     | LoginPageMsg LoginPage.Msg
-    | AppHomePageMsg AppMsg.Msg
+    | AppHomePageMsg AppModel.Msg
 
 
 main : Program String Model Msg
@@ -189,14 +190,15 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     Sub.batch
-        [ Sub.map (\m -> RegisterPageMsg m) (Ports.registerSuccess (always RegisterPage.RegisterSuccess))
-        , Sub.map (\m -> RegisterPageMsg m) (Ports.registerFailure RegisterPage.mapError)
-        , Sub.map (\m -> ConfirmUserPageMsg m) (Ports.confirmUserSuccess (always ConfirmUserPage.ConfirmUserSuccess))
-        , Sub.map (\m -> ConfirmUserPageMsg m) (Ports.confirmUserFailure ConfirmUserPage.mapError)
-        , Sub.map (\m -> LoginPageMsg m) (Ports.loginSuccess LoginPage.decodeToken)
-        , Sub.map (\m -> LoginPageMsg m) (Ports.loginFailure LoginPage.mapError)
+        [ Sub.map RegisterPageMsg (Ports.registerSuccess (always RegisterPage.RegisterSuccess))
+        , Sub.map RegisterPageMsg (Ports.registerFailure RegisterPage.mapError)
+        , Sub.map ConfirmUserPageMsg (Ports.confirmUserSuccess (always ConfirmUserPage.ConfirmUserSuccess))
+        , Sub.map ConfirmUserPageMsg (Ports.confirmUserFailure ConfirmUserPage.mapError)
+        , Sub.map LoginPageMsg (Ports.loginSuccess LoginPage.decodeToken)
+        , Sub.map LoginPageMsg (Ports.loginFailure LoginPage.mapError)
+        , Sub.map AppHomePageMsg (Porter.subscriptions AppSync.porterConfig)
         ]
 
 

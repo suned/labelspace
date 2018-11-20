@@ -117,27 +117,35 @@ import('./elm.compiled.js').then(function ({Elm}) {
         console.log('upload file', file)
     };
 
-    const createLabelMutationHandler = function (data) {
-      const mutation = gql`
-        mutation createLabel {
-          createLabel(labelType: "${data.labelType}", label: "${data.label}") {
-            ref
-            label
-            labelType
+    const toAppSyncHandler = function (idWithMsg) {
+      const data = idWithMsg.msg.data
+      const operation = idWithMsg.msg.operation
+      const id = idWithMsg.id
+      switch (operation) {
+        case "CreateDocumentLabel":
+        const mutation = gql`
+          mutation createLabel {
+            createLabel(labelType: "${data.labelType}", label: "${data.label}") {
+              ref
+              label
+              labelType
+            }
           }
-        }
-      `;
-      appSyncClient.mutate(
-        { mutation: mutation }
-      ).then(function (result) {
-        console.log(result);
-        app.ports.recieveLabels.send([result]);
-      }).catch(console.error);
+        `;
+        appSyncClient.mutate(
+          { mutation: mutation }
+        ).then(function (result) {
+          debugger
+          app.ports.fromAppSync.send(
+            { id: id, msg: { operation: operation, data: result.data.createLabel }}
+          );
+        }).catch(console.error);
+      }
     };
 
     app.ports.register.subscribe(registerHandler);
     app.ports.confirmUser.subscribe(confirmUserHandler);
     app.ports.login.subscribe(loginHandler);
     app.ports.upload.subscribe(uploadHandler);
-    app.ports.createLabelMutation.subscribe(createLabelMutationHandler);
+    app.ports.toAppSync.subscribe(toAppSyncHandler);
 });
