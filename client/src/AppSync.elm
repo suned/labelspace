@@ -1,8 +1,9 @@
 module AppSync exposing (porterConfig, send)
 
-import AppModel
+import AppMsg
 import Json.Decode
 import Json.Encode
+import Labels
 import Porter
 import Ports
 
@@ -17,7 +18,7 @@ maybeEncoder value maybe =
             Json.Encode.null
 
 
-labelEncoder : AppModel.Label -> String -> Json.Encode.Value
+labelEncoder : Labels.Label -> String -> Json.Encode.Value
 labelEncoder label labelType =
     Json.Encode.object
         [ ( "label", Json.Encode.string label.label )
@@ -26,10 +27,10 @@ labelEncoder label labelType =
         ]
 
 
-requestEncoder : AppModel.AppSyncRequest -> Json.Encode.Value
+requestEncoder : AppMsg.AppSyncRequest -> Json.Encode.Value
 requestEncoder { operation, request } =
     case request of
-        AppModel.CreateDocumentLabelRequest label ->
+        AppMsg.CreateDocumentLabelRequest label ->
             Json.Encode.object
                 [ ( "operation", Json.Encode.string operation )
                 , ( "data", labelEncoder label "document" )
@@ -55,18 +56,18 @@ responseDecoder =
 -- TODO find a way to avoid passing Json.Decode.Value through to Caller Here
 
 
-porterConfig : Porter.Config AppModel.AppSyncRequest (Result String Json.Decode.Value) AppModel.Msg
+porterConfig : Porter.Config AppMsg.AppSyncRequest (Result String Json.Decode.Value) AppMsg.Msg
 porterConfig =
     { outgoingPort = Ports.toAppSync
     , incomingPort = Ports.fromAppSync
     , encodeRequest = requestEncoder
     , decodeResponse = responseDecoder
-    , porterMsg = AppModel.AppSyncMsg << AppModel.PorterMsg
+    , porterMsg = AppMsg.AppSyncMsg << AppMsg.PorterMsg
     }
 
 
-send : (Result String Json.Decode.Value -> AppModel.Msg) -> AppModel.Request -> Cmd AppModel.Msg
+send : (Result String Json.Decode.Value -> AppMsg.Msg) -> AppMsg.Request -> Cmd AppMsg.Msg
 send msg request =
     case request of
-        AppModel.CreateDocumentLabelRequest _ ->
+        AppMsg.CreateDocumentLabelRequest _ ->
             Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateDocumentLabel", request = request })

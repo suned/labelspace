@@ -2,6 +2,7 @@ module Main exposing (Msg(..), checkToken, content, homeContent, init, main, set
 
 import App
 import AppModel
+import AppMsg
 import AppSync
 import Browser
 import Browser.Navigation as Nav
@@ -28,7 +29,7 @@ type Msg
     | ConfirmUserPageMsg ConfirmUserPage.Msg
     | RegisterPageMsg RegisterPage.Msg
     | LoginPageMsg LoginPage.Msg
-    | AppHomePageMsg AppModel.Msg
+    | AppHomePageMsg AppMsg.Msg
 
 
 main : Program String Model Msg

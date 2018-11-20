@@ -1,12 +1,12 @@
 module Decoders exposing (labelDecoder)
 
-import AppModel
 import Json.Decode
+import Labels
 
 
-labelDecoder : Json.Decode.Decoder AppModel.Label
+labelDecoder : Json.Decode.Decoder Labels.Label
 labelDecoder =
     Json.Decode.map2
-        AppModel.Label
+        Labels.Label
         (Json.Decode.field "ref" (Json.Decode.nullable Json.Decode.string))
         (Json.Decode.field "label" Json.Decode.string)
