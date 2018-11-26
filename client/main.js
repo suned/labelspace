@@ -96,7 +96,6 @@ import('./elm.compiled.js').then(function ({Elm}) {
                     }
                   }
                 );
-                debugger
                 app.ports.loginSuccess.send(idToken);
             },
             onFailure: function(err) {
@@ -135,7 +134,6 @@ import('./elm.compiled.js').then(function ({Elm}) {
         appSyncClient.mutate(
           { mutation: mutation }
         ).then(function (result) {
-          debugger
           app.ports.fromAppSync.send(
             { id: id, msg: { operation: operation, data: result.data.createLabel }}
           );

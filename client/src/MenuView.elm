@@ -22,6 +22,7 @@ import AppModel
 import AppMsg
 import Bulma
 import Css
+import Dict
 import Html.Styled as Html
 import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
@@ -98,10 +99,11 @@ addMenuItem addMenuItemType =
         ]
 
 
+addSubItems : Maybe Menu.AddMenuItem -> Dict.Dict String Menu.MenuItem -> List (Html.Html AppMsg.Msg)
 addSubItems addItem subItems =
     let
         subMenuHtml =
-            List.map menuItemHtml subItems
+            Dict.foldr menuLink [] subItems
     in
     case addItem of
         Just Menu.AddDocumentsMenuItem ->
@@ -115,56 +117,53 @@ addSubItems addItem subItems =
             ]
 
         Nothing ->
-            [ Html.ul [] subMenuHtml ]
+            if subMenuHtml == [] then
+                []
+
+            else
+                [ Html.ul [] subMenuHtml ]
 
 
-menuItemHtml : Menu.MenuItem -> Html.Html AppMsg.Msg
-menuItemHtml menuItem =
-    case menuItem of
-        Menu.MenuItem { label, icon, isOpen, addItem, subItems } ->
-            Html.li []
-                ([ Html.a
-                    ([ Attributes.href ""
-                     ]
-                        ++ (case ( subItems, addItem ) of
-                                ( [], Nothing ) ->
-                                    []
-
-                                _ ->
-                                    [ Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleMenuItem menuItem)) ]
-                           )
-                    )
-                    [ Html.span [ Bulma.iconClass ]
-                        [ Html.i [ Attributes.class icon ] [] ]
-                    , Html.text label
-                    ]
-                 ]
-                    ++ (if isOpen then
-                            addSubItems addItem subItems
-
-                        else
-                            []
-                       )
-                )
+hasSubItems (Menu.MenuItem { subItems }) =
+    Dict.keys subItems == []
 
 
-labelMenuHtml : Menu.LabelMenu -> Html.Html AppMsg.Msg
-labelMenuHtml labelMenu =
+menuLink : String -> Menu.MenuItem -> List (Html.Html AppMsg.Msg) -> List (Html.Html AppMsg.Msg)
+menuLink label menuItem previous =
     let
-        labelMenuItem =
-            Menu.MenuItem
-                { addItem = Just Menu.AddLabelMenuItem
-                , label = "labels"
-                , icon = "fas fa-tags"
-                , subItems =
-                    [ labelMenu.documentLabels
-                    , labelMenu.spanLabels
-                    , labelMenu.relationLables
-                    ]
-                , isOpen = labelMenu.isOpen
-                }
+        (Menu.MenuItem { icon, isOpen, addItem, subItems }) =
+            menuItem
+
+        attributes =
+            [ Attributes.href ""
+            , Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleMenuItem menuItem))
+            ]
+
+        aTag =
+            Html.a
+                attributes
+                [ Html.span [ Bulma.iconClass ]
+                    [ Html.i [ Attributes.class icon ] [] ]
+                , Html.text label
+                ]
     in
-    menuItemHtml labelMenuItem
+    previous
+        ++ [ aTag ]
+        ++ (if isOpen then
+                addSubItems addItem subItems
+
+            else
+                []
+           )
+
+
+menuItemHtml : Dict.Dict String Menu.MenuItem -> Html.Html AppMsg.Msg
+menuItemHtml menuItems =
+    let
+        children =
+            Dict.foldr menuLink [] menuItems
+    in
+    Html.li [] children
 
 
 openMenu : AppModel.Model -> Html.Html AppMsg.Msg
@@ -174,7 +173,7 @@ openMenu model =
             [ Html.aside [ Bulma.menuClass ]
                 [ Html.ul [ Bulma.menuListClass ]
                     [ menuItemHtml model.menu.documents
-                    , labelMenuHtml model.menu.labels
+                    , menuItemHtml model.menu.labels
                     , menuItemHtml model.menu.team
                     ]
                 ]
@@ -201,42 +200,30 @@ setMenu menuModel model =
     { model | menu = menuModel }
 
 
-toggleMenuItem : Menu.MenuItem -> Menu.MenuItem -> Menu.MenuItem
-toggleMenuItem targetMenuItem menuItem =
+toggleMenuItem : Menu.MenuItem -> String -> Menu.MenuItem -> Menu.MenuItem
+toggleMenuItem targetMenuItem _ menuItem =
     case ( targetMenuItem, menuItem ) of
         ( Menu.MenuItem target, Menu.MenuItem old ) ->
             if target == old then
-                Menu.MenuItem { old | isOpen = not old.isOpen, subItems = List.map (toggleMenuItem targetMenuItem) old.subItems }
+                Menu.MenuItem { old | isOpen = not old.isOpen, subItems = Dict.map (toggleMenuItem targetMenuItem) old.subItems }
 
             else
-                Menu.MenuItem { old | subItems = List.map (toggleMenuItem targetMenuItem) old.subItems }
+                Menu.MenuItem { old | subItems = Dict.map (toggleMenuItem targetMenuItem) old.subItems }
 
 
 toggleMenu : Menu.Menu -> Menu.MenuItem -> Menu.Menu
 toggleMenu menuModel menuItem =
     let
         toggledDocuments =
-            toggleMenuItem menuItem menuModel.documents
+            Dict.map (toggleMenuItem menuItem) menuModel.documents
 
         toggledTeam =
-            toggleMenuItem menuItem menuModel.team
+            Dict.map (toggleMenuItem menuItem) menuModel.team
 
-        toggledDocumentLabels =
-            toggleMenuItem menuItem menuModel.labels.documentLabels
-
-        toggledSpanLabels =
-            toggleMenuItem menuItem menuModel.labels.spanLabels
-
-        toggledRelationLabels =
-            toggleMenuItem menuItem menuModel.labels.relationLables
-
-        oldLabelsMenu =
-            menuModel.labels
-
-        newLabelsMenu =
-            { oldLabelsMenu | documentLabels = toggledDocumentLabels, spanLabels = toggledSpanLabels, relationLables = toggledRelationLabels }
+        toggledLabels =
+            Dict.map (toggleMenuItem menuItem) menuModel.labels
     in
-    { menuModel | documents = toggledDocuments, labels = newLabelsMenu, team = toggledTeam }
+    { menuModel | documents = toggledDocuments, labels = toggledLabels, team = toggledTeam }
 
 
 toggleAddLabelModal model =
@@ -263,7 +250,7 @@ update msg model =
             ( { model | menu = newMenu }, Cmd.none )
 
         AppMsg.ToggleMenuItem menuItem ->
-            ( model |> setMenu (toggleMenu model.menu menuItem), Cmd.none )
+            ( model |> setMenu (toggleMenu model.menu (Debug.log "toggled" menuItem)), Cmd.none )
 
         _ ->
             ( model, Cmd.none )

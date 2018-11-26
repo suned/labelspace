@@ -1,5 +1,6 @@
-module Menu exposing (AddMenuItem(..), LabelMenu, Menu, MenuItem(..), addDocumentLabel, init)
+module Menu exposing (AddMenuItem(..), Menu, MenuItem(..), addDocumentLabel, init)
 
+import Dict
 import Labels
 
 
@@ -11,27 +12,18 @@ type AddMenuItem
 
 type MenuItem
     = MenuItem
-        { label : String
-        , icon : String
+        { icon : String
         , isOpen : Bool
         , addItem : Maybe AddMenuItem
-        , subItems : List MenuItem
+        , subItems : Dict.Dict String MenuItem
         }
-
-
-type alias LabelMenu =
-    { isOpen : Bool
-    , documentLabels : MenuItem
-    , spanLabels : MenuItem
-    , relationLables : MenuItem
-    }
 
 
 type alias Menu =
     { isOpen : Bool
-    , documents : MenuItem
-    , labels : LabelMenu
-    , team : MenuItem
+    , documents : Dict.Dict String MenuItem
+    , labels : Dict.Dict String MenuItem
+    , team : Dict.Dict String MenuItem
     }
 
 
@@ -39,98 +31,172 @@ init : List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.Relatio
 init documentLabels spanLabels relationLabels team =
     { isOpen = True
     , documents =
-        MenuItem
-            { label = "documents"
-            , icon = "fas fa-copy"
-            , isOpen = True
-            , subItems =
-                List.map
-                    (\(Labels.DocumentLabel { ref, label }) -> label)
-                    documentLabels
-                    |> List.map folderMenuItem
-            , addItem = Just AddDocumentsMenuItem
-            }
+        Dict.fromList
+            [ ( "documents"
+              , MenuItem
+                    { icon = "fas fa-copy"
+                    , isOpen = True
+                    , subItems =
+                        List.map
+                            (\(Labels.DocumentLabel { ref, label }) -> label)
+                            documentLabels
+                            |> List.map folderMenuItem
+                            |> List.foldl Dict.union Dict.empty
+                    , addItem = Just AddDocumentsMenuItem
+                    }
+              )
+            ]
     , team =
-        MenuItem
-            { label = "team"
-            , icon = "fas fa-users"
-            , isOpen = True
-            , addItem = Just AddTeamMemberMenuItem
-            , subItems = List.map teamMemberMenuItem team
-            }
+        Dict.fromList
+            [ ( "team"
+              , MenuItem
+                    { icon = "fas fa-users"
+                    , isOpen = True
+                    , addItem = Just AddTeamMemberMenuItem
+                    , subItems = List.map teamMemberMenuItem team |> List.foldl Dict.union Dict.empty
+                    }
+              )
+            ]
     , labels =
-        { isOpen = True
-        , documentLabels =
-            MenuItem
-                { label = "document labels"
-                , icon = "fas fa-file"
-                , isOpen = False
-                , addItem = Nothing
-                , subItems =
-                    List.map
-                        (\(Labels.DocumentLabel { ref, label }) -> label)
-                        documentLabels
-                        |> List.map labelMenuItem
-                }
-        , spanLabels =
-            MenuItem
-                { label = "span labels"
-                , icon = "fas fa-highlighter"
-                , isOpen = False
-                , addItem = Nothing
-                , subItems =
-                    List.map
-                        (\(Labels.SpanLabel { ref, label }) -> label)
-                        spanLabels
-                        |> List.map labelMenuItem
-                }
-        , relationLables =
-            MenuItem
-                { label = "relation labels"
-                , icon = "fas fa-link"
-                , isOpen = False
-                , addItem = Nothing
-                , subItems =
-                    List.map
-                        (\(Labels.RelationLabel { ref, label }) -> label)
-                        relationLabels
-                        |> List.map labelMenuItem
-                }
-        }
+        Dict.fromList
+            [ ( "labels"
+              , MenuItem
+                    { isOpen = True
+                    , icon = "fas fa-tags"
+                    , addItem = Just AddLabelMenuItem
+                    , subItems =
+                        Dict.fromList
+                            [ ( "document labels"
+                              , MenuItem
+                                    { icon = "fas fa-file"
+                                    , isOpen = False
+                                    , addItem = Nothing
+                                    , subItems =
+                                        List.map
+                                            (\(Labels.DocumentLabel { ref, label }) -> label)
+                                            documentLabels
+                                            |> List.map labelMenuItem
+                                            |> List.foldl Dict.union Dict.empty
+                                    }
+                              )
+                            , ( "span labels"
+                              , MenuItem
+                                    { icon = "fas fa-highlighter"
+                                    , isOpen = False
+                                    , addItem = Nothing
+                                    , subItems =
+                                        List.map
+                                            (\(Labels.SpanLabel { ref, label }) -> label)
+                                            spanLabels
+                                            |> List.map labelMenuItem
+                                            |> List.foldl Dict.union Dict.empty
+                                    }
+                              )
+                            , ( "relation labels"
+                              , MenuItem
+                                    { icon = "fas fa-link"
+                                    , isOpen = False
+                                    , addItem = Nothing
+                                    , subItems =
+                                        List.map
+                                            (\(Labels.RelationLabel { ref, label }) -> label)
+                                            relationLabels
+                                            |> List.map labelMenuItem
+                                            |> List.foldl Dict.union Dict.empty
+                                    }
+                              )
+                            ]
+                    }
+              )
+            ]
     }
+
+
+getSubItems (MenuItem { subItems }) =
+    Just subItems
+
+
+setSubItems (MenuItem options) subItems =
+    MenuItem { options | subItems = subItems }
+
+
+getMenuItem : List String -> Dict.Dict String MenuItem -> Maybe MenuItem
+getMenuItem labels subMenu =
+    case labels of
+        [] ->
+            Nothing
+
+        last :: [] ->
+            Dict.get last subMenu
+
+        first :: rest ->
+            Dict.get first subMenu
+                |> Maybe.andThen getSubItems
+                |> Maybe.andThen (getMenuItem rest)
+
+
+setMenuItem : MenuItem -> List String -> Dict.Dict String MenuItem -> Maybe (Dict.Dict String MenuItem)
+setMenuItem newItem path subMenu =
+    case path of
+        [] ->
+            Nothing
+
+        last :: [] ->
+            Just (Dict.insert last newItem subMenu)
+
+        first :: rest ->
+            Dict.get first subMenu
+                |> Maybe.andThen getSubItems
+                |> Maybe.andThen (setMenuItem newItem rest)
+                |> Maybe.map2 setSubItems (Dict.get first subMenu)
+                |> Maybe.andThen (\newSubSubMenu -> Just (Dict.insert first newSubSubMenu subMenu))
 
 
 addDocumentLabel : Labels.DocumentLabel -> Menu -> Menu
 addDocumentLabel (Labels.DocumentLabel { ref, label }) menu =
-    let
-        oldLabelsMenu =
-            menu.labels
+    case getMenuItem [ "labels", "document labels" ] menu.labels of
+        Just (MenuItem options) ->
+            let
+                { icon, subItems, addItem, isOpen } =
+                    options
 
-        (MenuItem oldDocumentLabels) =
-            menu.labels.documentLabels
+                documentLabelItem =
+                    MenuItem
+                        { icon = "fas fa-tag"
+                        , isOpen = False
+                        , subItems = Dict.empty
+                        , addItem = Nothing
+                        }
 
-        subItems =
-            labelMenuItem label :: oldDocumentLabels.subItems
+                newSubItems =
+                    Dict.insert
+                        label
+                        documentLabelItem
+                        subItems
 
-        newDocumentLabels =
-            MenuItem { oldDocumentLabels | subItems = subItems }
+                newLabels =
+                    setMenuItem
+                        (MenuItem { options | subItems = newSubItems })
+                        [ "labels", "document labels" ]
+                        menu.labels
+                        |> Maybe.withDefault Dict.empty
+            in
+            { menu | labels = newLabels }
 
-        newLabelsMenu =
-            { oldLabelsMenu | documentLabels = newDocumentLabels }
-    in
-    { menu | labels = newLabelsMenu }
+        Nothing ->
+            Debug.todo "Either labels or document labels was removed from the menu"
 
 
-folderMenuItem : String -> MenuItem
+folderMenuItem : String -> Dict.Dict String MenuItem
 folderMenuItem documentLabel =
-    MenuItem { label = documentLabel, icon = "fas fa-folder", isOpen = False, subItems = [], addItem = Nothing }
+    Dict.fromList [ ( documentLabel, MenuItem { icon = "fas fa-folder", isOpen = False, subItems = Dict.empty, addItem = Nothing } ) ]
 
 
-teamMemberMenuItem : String -> MenuItem
+teamMemberMenuItem : String -> Dict.Dict String MenuItem
 teamMemberMenuItem teamMember =
-    MenuItem { label = teamMember, icon = "fas fa-user", isOpen = False, subItems = [], addItem = Nothing }
+    Dict.fromList [ ( teamMember, MenuItem { icon = "fas fa-user", isOpen = False, subItems = Dict.empty, addItem = Nothing } ) ]
 
 
-labelMenuItem : String -> MenuItem
+labelMenuItem : String -> Dict.Dict String MenuItem
 labelMenuItem label =
-    MenuItem { label = label, icon = "fas fa-tag", isOpen = False, subItems = [], addItem = Nothing }
+    Dict.fromList [ ( label, MenuItem { icon = "fas fa-tag", isOpen = False, subItems = Dict.empty, addItem = Nothing } ) ]
