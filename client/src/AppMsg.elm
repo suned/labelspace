@@ -1,4 +1,4 @@
-module AppMsg exposing (AddLabelMenuMsg(..), AppSyncMsg(..), AppSyncRequest, LabelType(..), MenuMsg(..), Msg(..), Request(..))
+module AppMsg exposing (AddLabelMenuMsg(..), AddTeamMemberMenuMsg(..), AppSyncMsg(..), AppSyncRequest, LabelType(..), MenuMsg(..), Msg(..), Request(..))
 
 import Json.Decode
 import Labels
@@ -32,6 +32,7 @@ type Msg
     = MenuMsg MenuMsg
     | AddLabelMenuMsg AddLabelMenuMsg
     | AppSyncMsg AppSyncMsg
+    | AddTeamMemberMenuMsg AddTeamMemberMenuMsg
 
 
 type MenuMsg
@@ -49,3 +50,9 @@ type AddLabelMenuMsg
     | CreateDocumentLabelResponse (Result String Json.Decode.Value)
     | CreateSpanLabelResponse (Result String Json.Decode.Value)
     | CreateRelationLabelResponse (Result String Json.Decode.Value)
+
+
+type AddTeamMemberMenuMsg
+    = ToggleAddTeamMemberMenu
+    | SetEmail String
+    | SaveTeamMember

@@ -100,130 +100,115 @@ handleCreateLabelResponse result model labelAdder =
 
 modal : AddLabelMenu.AddLabelMenu -> Html.Html AppMsg.Msg
 modal model =
-    Html.div
-        ([ Bulma.modalClass ]
-            ++ (if model.isOpen then
-                    [ Bulma.isActiveClass ]
+    let
+        title =
+            "Add Label"
 
-                else
-                    []
-               )
-        )
-        [ Html.div [ Bulma.modalBackgroundClass ] []
-        , Html.div [ Bulma.modalCardClass ]
-            [ Html.header [ Bulma.modalCardHeadClass ]
-                [ Html.p [ Bulma.modalCardTitleClass ] [ Html.text "Add Label" ]
-                , Html.button
-                    [ Bulma.deleteClass
-                    , Events.onClick
-                        (AppMsg.AddLabelMenuMsg
-                            AppMsg.ToggleAddLabelMenu
-                        )
-                    ]
-                    []
-                ]
-            , Html.section [ Bulma.modalCardBodyClass ]
-                [ Html.div [ Bulma.fieldClass ]
-                    [ Html.div [ Bulma.columnsClass ]
-                        [ Html.div [ Bulma.columnClass, Bulma.isNarrowClass ]
-                            [ Html.div [ Bulma.fieldClass ]
-                                [ Html.label [ Bulma.labelClass ]
-                                    [ Html.text "label type" ]
-                                , Html.div [ Bulma.controlClass ]
-                                    [ Html.div [ Bulma.selectClass, Bulma.isMultipleClass ]
-                                        [ Html.select
-                                            ([ Attributes.multiple True
-                                             , Attributes.size 3
-                                             ]
-                                                ++ (case model.labelType of
-                                                        Nothing ->
-                                                            [ Attributes.value "" ]
+        toggleMsg =
+            AppMsg.AddLabelMenuMsg AppMsg.ToggleAddLabelMenu
 
-                                                        Just labelType ->
-                                                            [ Attributes.value (labelType2String labelType) ]
-                                                   )
-                                            )
-                                            [ Html.option
-                                                [ Attributes.value "document label"
-                                                , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Document))
-                                                ]
-                                                [ Html.span [ Bulma.iconClass ]
-                                                    [ Html.i [ Attributes.class "fas fa-file" ] [] ]
-                                                , Html.text (labelType2String AppMsg.Document)
-                                                ]
-                                            , Html.option
-                                                [ Attributes.value "span label"
-                                                , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Span))
-                                                ]
-                                                [ Html.span [ Bulma.iconClass ]
-                                                    [ Html.i [ Attributes.class "fas fa-highlighter" ] [] ]
-                                                , Html.text (labelType2String AppMsg.Span)
-                                                ]
-                                            , Html.option
-                                                [ Attributes.value "relation label"
-                                                , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Relation))
-                                                ]
-                                                [ Html.span [ Bulma.iconClass ]
-                                                    [ Html.i [ Attributes.class "fas fa-link" ] [] ]
-                                                , Html.text (labelType2String AppMsg.Relation)
-                                                ]
+        body =
+            Html.div [ Bulma.fieldClass ]
+                [ Html.div [ Bulma.columnsClass ]
+                    [ Html.div [ Bulma.columnClass, Bulma.isNarrowClass ]
+                        [ Html.div [ Bulma.fieldClass ]
+                            [ Html.label [ Bulma.labelClass ]
+                                [ Html.text "label type" ]
+                            , Html.div [ Bulma.controlClass ]
+                                [ Html.div [ Bulma.selectClass, Bulma.isMultipleClass ]
+                                    [ Html.select
+                                        ([ Attributes.multiple True
+                                         , Attributes.size 3
+                                         ]
+                                            ++ (case model.labelType of
+                                                    Nothing ->
+                                                        [ Attributes.value "" ]
+
+                                                    Just labelType ->
+                                                        [ Attributes.value (labelType2String labelType) ]
+                                               )
+                                        )
+                                        [ Html.option
+                                            [ Attributes.value "document label"
+                                            , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Document))
+                                            ]
+                                            [ Html.span [ Bulma.iconClass ]
+                                                [ Html.i [ Attributes.class "fas fa-file" ] [] ]
+                                            , Html.text (labelType2String AppMsg.Document)
+                                            ]
+                                        , Html.option
+                                            [ Attributes.value "span label"
+                                            , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Span))
+                                            ]
+                                            [ Html.span [ Bulma.iconClass ]
+                                                [ Html.i [ Attributes.class "fas fa-highlighter" ] [] ]
+                                            , Html.text (labelType2String AppMsg.Span)
+                                            ]
+                                        , Html.option
+                                            [ Attributes.value "relation label"
+                                            , Events.onClick (AppMsg.AddLabelMenuMsg (AppMsg.Select AppMsg.Relation))
+                                            ]
+                                            [ Html.span [ Bulma.iconClass ]
+                                                [ Html.i [ Attributes.class "fas fa-link" ] [] ]
+                                            , Html.text (labelType2String AppMsg.Relation)
                                             ]
                                         ]
                                     ]
                                 ]
                             ]
-                        , Html.div [ Bulma.columnClass ]
-                            [ Html.div [ Bulma.fieldClass ]
-                                [ Html.label [ Bulma.labelClass ]
-                                    [ Html.text "label" ]
-                                , Html.div [ Bulma.controlClass ]
-                                    [ Html.input
-                                        [ Bulma.inputClass
-                                        , Attributes.placeholder "label"
-                                        , Attributes.value model.label
-                                        , Events.onInput (AppMsg.AddLabelMenuMsg << AppMsg.SetLabel)
-                                        ]
-                                        []
+                        ]
+                    , Html.div [ Bulma.columnClass ]
+                        [ Html.div [ Bulma.fieldClass ]
+                            [ Html.label [ Bulma.labelClass ]
+                                [ Html.text "label" ]
+                            , Html.div [ Bulma.controlClass ]
+                                [ Html.input
+                                    [ Bulma.inputClass
+                                    , Attributes.placeholder "label"
+                                    , Attributes.value model.label
+                                    , Events.onInput (AppMsg.AddLabelMenuMsg << AppMsg.SetLabel)
                                     ]
+                                    []
                                 ]
                             ]
                         ]
                     ]
                 ]
-            , Html.footer [ Bulma.modalCardFootClass ]
-                [ Html.button
-                    ([ Bulma.buttonClass
-                     , Bulma.isSuccessClass
-                     , Events.onClick (AppMsg.AddLabelMenuMsg AppMsg.SaveLabel)
-                     ]
-                        ++ (case ( model.label, model.state, model.labelType ) of
-                                ( "", _, _ ) ->
-                                    [ Attributes.disabled True ]
 
-                                ( _, _, Nothing ) ->
-                                    [ Attributes.disabled True ]
+        footer =
+            [ Html.button
+                ([ Bulma.buttonClass
+                 , Bulma.isSuccessClass
+                 , Events.onClick (AppMsg.AddLabelMenuMsg AppMsg.SaveLabel)
+                 ]
+                    ++ (case ( model.label, model.state, model.labelType ) of
+                            ( "", _, _ ) ->
+                                [ Attributes.disabled True ]
 
-                                ( _, AddLabelMenu.Pending, _ ) ->
-                                    [ Bulma.isLoadingClass ]
+                            ( _, _, Nothing ) ->
+                                [ Attributes.disabled True ]
 
-                                _ ->
-                                    []
-                           )
-                    )
-                    [ Html.text "save" ]
-                , Html.span
-                    ([ Bulma.helpClass
-                     , Bulma.isDangerClass
-                     ]
-                        ++ (case model.state of
-                                AddLabelMenu.Error ->
-                                    []
+                            ( _, AddLabelMenu.Pending, _ ) ->
+                                [ Bulma.isLoadingClass ]
 
-                                _ ->
-                                    [ Bulma.isInvisibleClass ]
-                           )
-                    )
-                    [ Html.text "Something went wrong, try again later." ]
-                ]
+                            _ ->
+                                []
+                       )
+                )
+                [ Html.text "save" ]
+            , Html.span
+                ([ Bulma.helpClass
+                 , Bulma.isDangerClass
+                 ]
+                    ++ (case model.state of
+                            AddLabelMenu.Error ->
+                                []
+
+                            _ ->
+                                [ Bulma.isInvisibleClass ]
+                       )
+                )
+                [ Html.text "Something went wrong, try again later." ]
             ]
-        ]
+    in
+    Bulma.modal model.isOpen title toggleMsg body footer

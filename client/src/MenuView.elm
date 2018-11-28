@@ -18,6 +18,7 @@ module MenuView exposing
 
 import AddLabelMenu
 import AddLabelMenuView
+import AddTeamMemberMenuView
 import AppModel
 import AppMsg
 import Bulma
@@ -271,6 +272,7 @@ menu model =
         , Attributes.css [ Css.minHeight (Css.calc (Css.vh 100) Css.minus (Css.em 2.5)) ]
         ]
         [ AddLabelMenuView.modal model.addLabelMenu
+        , AddTeamMemberMenuView.modal model.addTeamMemberMenu
         , if model.menu.isOpen then
             openMenu model
 

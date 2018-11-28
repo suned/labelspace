@@ -4,6 +4,7 @@ module AppModel exposing
     , addRelationLabel
     , addSpanLabel
     , asAddLabelMenu
+    , asAddTeamMemberMenu
     , initModel
     , setAddLabelMenu
     , setApiUrl
@@ -12,16 +13,13 @@ module AppModel exposing
     )
 
 import AddLabelMenu
+import AddTeamMemberMenu
 import AppMsg
 import Http
 import Json.Decode
 import Labels
 import Menu
 import Porter
-
-
-type alias AddTeamMemberMenu =
-    {}
 
 
 type alias Editor =
@@ -33,7 +31,7 @@ type alias Model =
     , apiUrl : String
     , menu : Menu.Menu
     , addLabelMenu : AddLabelMenu.AddLabelMenu
-    , addTeamMemberMenu : AddTeamMemberMenu
+    , addTeamMemberMenu : AddTeamMemberMenu.Menu
     , documentLabels : List Labels.DocumentLabel
     , spanLabels : List Labels.SpanLabel
     , relationLabels : List Labels.RelationLabel
@@ -44,6 +42,14 @@ type alias Model =
 
 setAddLabelMenu addLabelMenu model =
     { model | addLabelMenu = addLabelMenu }
+
+
+setAddTeamMemberMenu addTeamMemberMenu model =
+    { model | addTeamMemberMenu = addTeamMemberMenu }
+
+
+asAddTeamMemberMenu =
+    flip setAddTeamMemberMenu
 
 
 flip : (a -> b -> c) -> (b -> a -> c)
@@ -113,6 +119,6 @@ initModel apiUrl token documentLabels spanLabels relationLabels team =
     , relationLabels = relationLabels
     , spanLabels = spanLabels
     , addLabelMenu = AddLabelMenu.init
-    , addTeamMemberMenu = {}
+    , addTeamMemberMenu = AddTeamMemberMenu.init
     , menu = Menu.init documentLabels spanLabels relationLabels team
     }

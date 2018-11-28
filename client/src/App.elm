@@ -2,6 +2,7 @@ module App exposing (fileInputId, labelEditor, setMenuModel, setToken, update, v
 
 import AddLabelMenu
 import AddLabelMenuView
+import AddTeamMemberMenuView
 import AppModel
 import AppMsg
 import AppSync
@@ -62,3 +63,6 @@ update msg model =
                     Porter.update AppSync.porterConfig porterMsg model.porter
             in
             ( { model | porter = porterModel }, porterCmd )
+
+        AppMsg.AddTeamMemberMenuMsg addTeamMemberMenuMsg ->
+            AddTeamMemberMenuView.update addTeamMemberMenuMsg model
