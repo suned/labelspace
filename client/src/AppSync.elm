@@ -18,12 +18,19 @@ maybeEncoder value maybe =
             Json.Encode.null
 
 
-labelEncoder : Labels.Label -> String -> Json.Encode.Value
-labelEncoder label labelType =
+labelEncoder : Labels.Label -> Json.Encode.Value
+labelEncoder label =
     Json.Encode.object
         [ ( "label", Json.Encode.string label.label )
-        , ( "labelType", Json.Encode.string labelType )
         , ( "ref", maybeEncoder Json.Encode.string label.ref )
+        ]
+
+
+createLabelRequestEncoder : String -> Labels.Label -> Json.Encode.Value
+createLabelRequestEncoder operation label =
+    Json.Encode.object
+        [ ( "operation", Json.Encode.string operation )
+        , ( "data", labelEncoder label )
         ]
 
 
@@ -31,10 +38,13 @@ requestEncoder : AppMsg.AppSyncRequest -> Json.Encode.Value
 requestEncoder { operation, request } =
     case request of
         AppMsg.CreateDocumentLabelRequest label ->
-            Json.Encode.object
-                [ ( "operation", Json.Encode.string operation )
-                , ( "data", labelEncoder label "document" )
-                ]
+            createLabelRequestEncoder operation label
+
+        AppMsg.CreateSpanLabelRequest label ->
+            createLabelRequestEncoder operation label
+
+        AppMsg.CreateRelationLabelRequest label ->
+            createLabelRequestEncoder operation label
 
 
 handleError : Maybe String -> Json.Decode.Decoder (Result String Json.Decode.Value)
@@ -71,3 +81,9 @@ send msg request =
     case request of
         AppMsg.CreateDocumentLabelRequest _ ->
             Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateDocumentLabel", request = request })
+
+        AppMsg.CreateSpanLabelRequest _ ->
+            Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateSpanLabel", request = request })
+
+        AppMsg.CreateRelationLabelRequest _ ->
+            Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateRelationLabel", request = request })

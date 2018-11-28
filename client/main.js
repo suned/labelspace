@@ -116,28 +116,40 @@ import('./elm.compiled.js').then(function ({Elm}) {
         console.log('upload file', file)
     };
 
+    const createLabel = function (labelType, label) {
+      const mutation = gql`
+        mutation createLabel {
+          createLabel(labelType: "${labelType}", label: "${label}") {
+            ref
+            label
+            labelType
+          }
+        }
+      `;
+      appSyncClient.mutate(
+        { mutation: mutation }
+      ).then(function (result) {
+        app.ports.fromAppSync.send(
+          { id: id, msg: { operation: operation, data: result.data.createLabel }}
+        );
+      }).catch(error => {
+        app.ports.fromAppSync.send(
+          { id: id, msg: { operation: operation, error: error.message }}
+        );
+      });
+    };
+    
     const toAppSyncHandler = function (idWithMsg) {
       const data = idWithMsg.msg.data
       const operation = idWithMsg.msg.operation
       const id = idWithMsg.id
       switch (operation) {
         case "CreateDocumentLabel":
-        const mutation = gql`
-          mutation createLabel {
-            createLabel(labelType: "${data.labelType}", label: "${data.label}") {
-              ref
-              label
-              labelType
-            }
-          }
-        `;
-        appSyncClient.mutate(
-          { mutation: mutation }
-        ).then(function (result) {
-          app.ports.fromAppSync.send(
-            { id: id, msg: { operation: operation, data: result.data.createLabel }}
-          );
-        }).catch(console.error);
+          createLabel("document", data.label);
+        case "CreateSpanLabel":
+          createLabel("span", data.label);
+        case "CreateRelationLabel":
+          createLabel("relation", data.label);
       }
     };
 

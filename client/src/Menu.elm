@@ -1,4 +1,4 @@
-module Menu exposing (AddMenuItem(..), Menu, MenuItem(..), addDocumentLabel, init)
+module Menu exposing (AddMenuItem(..), Menu, MenuItem(..), addDocumentLabel, addRelationLabel, addSpanLabel, init)
 
 import Dict
 import Labels
@@ -152,15 +152,15 @@ setMenuItem newItem path subMenu =
                 |> Maybe.andThen (\newSubSubMenu -> Just (Dict.insert first newSubSubMenu subMenu))
 
 
-addDocumentLabel : Labels.DocumentLabel -> Menu -> Menu
-addDocumentLabel (Labels.DocumentLabel { ref, label }) menu =
-    case getMenuItem [ "labels", "document labels" ] menu.labels of
+addLabel : List String -> String -> Menu -> Menu
+addLabel path label menu =
+    case getMenuItem path menu.labels of
         Just (MenuItem options) ->
             let
                 { icon, subItems, addItem, isOpen } =
                     options
 
-                documentLabelItem =
+                labelItem =
                     MenuItem
                         { icon = "fas fa-tag"
                         , isOpen = False
@@ -171,20 +171,35 @@ addDocumentLabel (Labels.DocumentLabel { ref, label }) menu =
                 newSubItems =
                     Dict.insert
                         label
-                        documentLabelItem
+                        labelItem
                         subItems
 
                 newLabels =
                     setMenuItem
                         (MenuItem { options | subItems = newSubItems })
-                        [ "labels", "document labels" ]
+                        path
                         menu.labels
                         |> Maybe.withDefault Dict.empty
             in
             { menu | labels = newLabels }
 
         Nothing ->
-            Debug.todo "Either labels or document labels was removed from the menu"
+            Debug.todo "Either labels or a permanent subitem was removed from the menu"
+
+
+addDocumentLabel : Labels.DocumentLabel -> Menu -> Menu
+addDocumentLabel (Labels.DocumentLabel { ref, label }) menu =
+    addLabel [ "labels", "document labels" ] label menu
+
+
+addSpanLabel : Labels.SpanLabel -> Menu -> Menu
+addSpanLabel (Labels.SpanLabel { ref, label }) menu =
+    addLabel [ "labels", "span labels" ] label menu
+
+
+addRelationLabel : Labels.RelationLabel -> Menu -> Menu
+addRelationLabel (Labels.RelationLabel { ref, label }) menu =
+    addLabel [ "labels", "relation labels" ] label menu
 
 
 folderMenuItem : String -> Dict.Dict String MenuItem

@@ -1,6 +1,8 @@
 module AppModel exposing
     ( Model
     , addDocumentLabel
+    , addRelationLabel
+    , addSpanLabel
     , asAddLabelMenu
     , initModel
     , setAddLabelMenu
@@ -75,6 +77,30 @@ addDocumentLabel label model =
             model.documentLabels
     in
     { model | menu = newMenu, documentLabels = label :: oldLabels }
+
+
+addSpanLabel : Labels.SpanLabel -> Model -> Model
+addSpanLabel label model =
+    let
+        newMenu =
+            Menu.addSpanLabel label model.menu
+
+        oldLabels =
+            model.spanLabels
+    in
+    { model | menu = newMenu, spanLabels = label :: oldLabels }
+
+
+addRelationLabel : Labels.RelationLabel -> Model -> Model
+addRelationLabel label model =
+    let
+        newMenu =
+            Menu.addRelationLabel label model.menu
+
+        oldLabels =
+            model.relationLabels
+    in
+    { model | menu = newMenu, relationLabels = label :: oldLabels }
 
 
 initModel : String -> String -> List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.RelationLabel -> List String -> Model

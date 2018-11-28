@@ -43,10 +43,14 @@ update msg model =
                         (AppMsg.CreateDocumentLabelRequest { ref = Nothing, label = model.addLabelMenu.label })
 
                 Just AppMsg.Span ->
-                    Debug.todo "Not implemented"
+                    AppSync.send
+                        (AppMsg.AddLabelMenuMsg << AppMsg.CreateSpanLabelResponse)
+                        (AppMsg.CreateSpanLabelRequest { ref = Nothing, label = model.addLabelMenu.label })
 
                 Just AppMsg.Relation ->
-                    Cmd.none
+                    AppSync.send
+                        (AppMsg.AddLabelMenuMsg << AppMsg.CreateRelationLabelResponse)
+                        (AppMsg.CreateRelationLabelRequest { ref = Nothing, label = model.addLabelMenu.label })
 
                 Nothing ->
                     Debug.todo "Save label button clicked while no label type was selected. This shouldn't be possible: redesign."
@@ -59,34 +63,39 @@ update msg model =
             ( model.addLabelMenu |> AddLabelMenu.setLabelType (Just labelType) |> AppModel.asAddLabelMenu model, Cmd.none )
 
         AppMsg.CreateDocumentLabelResponse result ->
-            case result of
-                Err _ ->
+            handleCreateLabelResponse result model (AppModel.addDocumentLabel << Labels.DocumentLabel)
+
+        AppMsg.CreateSpanLabelResponse result ->
+            handleCreateLabelResponse result model (AppModel.addSpanLabel << Labels.SpanLabel)
+
+        AppMsg.CreateRelationLabelResponse result ->
+            handleCreateLabelResponse result model (AppModel.addRelationLabel << Labels.RelationLabel)
+
+
+handleCreateLabelResponse : Result String Json.Decode.Value -> AppModel.Model -> (Labels.Label -> AppModel.Model -> AppModel.Model) -> ( AppModel.Model, Cmd AppMsg.Msg )
+handleCreateLabelResponse result model labelAdder =
+    case result of
+        Err _ ->
+            ( model.addLabelMenu
+                |> AddLabelMenu.setState AddLabelMenu.Error
+                |> AppModel.asAddLabelMenu model
+            , Cmd.none
+            )
+
+        Ok json ->
+            case Json.Decode.decodeValue Decoders.labelDecoder json of
+                Err reason ->
                     ( model.addLabelMenu
                         |> AddLabelMenu.setState AddLabelMenu.Error
                         |> AppModel.asAddLabelMenu model
                     , Cmd.none
                     )
 
-                Ok json ->
-                    case Json.Decode.decodeValue Decoders.labelDecoder json of
-                        Err reason ->
-                            Debug.log
-                                "Error while decoding label json: "
-                                ( model.addLabelMenu
-                                    |> AddLabelMenu.setState AddLabelMenu.Error
-                                    |> AppModel.asAddLabelMenu model
-                                , Cmd.none
-                                )
-
-                        Ok label ->
-                            ( model.addLabelMenu
-                                |> AddLabelMenu.toggleIsOpen
-                                |> AddLabelMenu.setState AddLabelMenu.Init
-                                |> AddLabelMenu.setLabel ""
-                                |> AddLabelMenu.setLabelType Nothing
-                                |> AppModel.asAddLabelMenu (AppModel.addDocumentLabel (Labels.DocumentLabel label) model)
-                            , Cmd.none
-                            )
+                Ok label ->
+                    ( AddLabelMenu.init
+                        |> AppModel.asAddLabelMenu (labelAdder label model)
+                    , Cmd.none
+                    )
 
 
 modal : AddLabelMenu.AddLabelMenu -> Html.Html AppMsg.Msg

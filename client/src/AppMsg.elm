@@ -20,6 +20,8 @@ type alias AppSyncRequest =
 
 type Request
     = CreateDocumentLabelRequest Labels.Label
+    | CreateSpanLabelRequest Labels.Label
+    | CreateRelationLabelRequest Labels.Label
 
 
 type AppSyncMsg
@@ -45,3 +47,5 @@ type AddLabelMenuMsg
     | Select LabelType
     | SaveLabel
     | CreateDocumentLabelResponse (Result String Json.Decode.Value)
+    | CreateSpanLabelResponse (Result String Json.Decode.Value)
+    | CreateRelationLabelResponse (Result String Json.Decode.Value)
