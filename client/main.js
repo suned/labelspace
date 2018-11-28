@@ -116,7 +116,7 @@ import('./elm.compiled.js').then(function ({Elm}) {
         console.log('upload file', file)
     };
 
-    const createLabel = function (labelType, label) {
+    const createLabel = function (labelType, label, id, operation) {
       const mutation = gql`
         mutation createLabel {
           createLabel(labelType: "${labelType}", label: "${label}") {
@@ -138,18 +138,18 @@ import('./elm.compiled.js').then(function ({Elm}) {
         );
       });
     };
-    
+
     const toAppSyncHandler = function (idWithMsg) {
       const data = idWithMsg.msg.data
       const operation = idWithMsg.msg.operation
       const id = idWithMsg.id
       switch (operation) {
         case "CreateDocumentLabel":
-          createLabel("document", data.label);
+          createLabel("document", data.label, id, operation);
         case "CreateSpanLabel":
-          createLabel("span", data.label);
+          createLabel("span", data.label, id, operation);
         case "CreateRelationLabel":
-          createLabel("relation", data.label);
+          createLabel("relation", data.label, id, operation);
       }
     };
 
