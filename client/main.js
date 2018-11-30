@@ -96,7 +96,19 @@ import('./elm.compiled.js').then(function ({Elm}) {
                     }
                   }
                 );
-                app.ports.loginSuccess.send(idToken);
+                cognitoUser.getUserAttributes(function (err, result) {
+                  if (err) {
+                    app.ports.loginFailure.send(err.code);
+                  }
+                  const organization = result.find(attr => attr.Name === 'custom:organization').Value
+                  const organizationId = result.find(attr => attr.Name === 'custom:organizationId').Value
+                  app.ports.loginSuccess.send(
+                    { token: idToken
+                    , organization: organization
+                    , organizationId: organizationId
+                    }
+                  );
+                });
             },
             onFailure: function(err) {
                 console.log(err);

@@ -5,23 +5,21 @@ import AppModel
 import AppMsg
 import Bulma
 import Html.Styled as Html
+import Html.Styled.Events as Events
 
 
 modal model =
     let
-        isOpen =
-            True
-
         title =
             "Add Team Member"
 
         body =
-            Html.div [] []
+            Bulma.labelledField "email" [ Bulma.textInput [ Events.onInput (AppMsg.AddTeamMemberMenuMsg << AppMsg.SetEmail) ] ]
 
         footer =
-            [ Html.div [] [] ]
+            [ Bulma.button [ Events.onClick (AppMsg.AddTeamMemberMenuMsg AppMsg.SaveTeamMember) ] "invite" ]
     in
-    Bulma.modal isOpen title (AppMsg.AddTeamMemberMenuMsg AppMsg.ToggleAddTeamMemberMenu) body footer
+    Bulma.modal model.isOpen title (AppMsg.AddTeamMemberMenuMsg AppMsg.ToggleAddTeamMemberMenu) body footer
 
 
 update : AppMsg.AddTeamMemberMenuMsg -> AppModel.Model -> ( AppModel.Model, Cmd AppMsg.Msg )
@@ -34,4 +32,4 @@ update msg model =
             ( model.addTeamMemberMenu |> AddTeamMemberMenu.setEmail email |> AppModel.asAddTeamMemberMenu model, Cmd.none )
 
         AppMsg.SaveTeamMember ->
-            ( model, Cmd.none )
+            Debug.todo "save team member"

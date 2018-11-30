@@ -28,6 +28,8 @@ type alias Editor =
 
 type alias Model =
     { token : String
+    , organization : String
+    , organizationId : String
     , apiUrl : String
     , menu : Menu.Menu
     , addLabelMenu : AddLabelMenu.AddLabelMenu
@@ -109,9 +111,11 @@ addRelationLabel label model =
     { model | menu = newMenu, relationLabels = label :: oldLabels }
 
 
-initModel : String -> String -> List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.RelationLabel -> List String -> Model
-initModel apiUrl token documentLabels spanLabels relationLabels team =
+initModel : String -> String -> String -> String -> List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.RelationLabel -> List String -> Model
+initModel apiUrl token organizationId organization documentLabels spanLabels relationLabels team =
     { token = token
+    , organization = organization
+    , organizationId = organizationId
     , porter = Porter.init
     , apiUrl = apiUrl
     , editor = {}

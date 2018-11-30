@@ -58,7 +58,7 @@ init apiUrl url key =
                 (RegisterPage.Model key "" "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" username ConfirmUserPage.Initial)
                 (LoginPage.Model "" "" Nothing key LoginPage.Init)
-                (AppModel.initModel apiUrl "" [] [] [] [])
+                (AppModel.initModel "" "" "" "" [] [] [] [])
 
         _ ->
             Model
@@ -67,7 +67,7 @@ init apiUrl url key =
                 (RegisterPage.Model key "" "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" "" ConfirmUserPage.Initial)
                 (LoginPage.Model "" "" Nothing key LoginPage.Init)
-                (AppModel.initModel apiUrl "" [] [] [] [])
+                (AppModel.initModel "" "" "" "" [] [] [] [])
     , case route of
         Route.App ->
             Nav.pushUrl key Route.loginRoute
@@ -108,11 +108,11 @@ setAppHomePageModel appHomeModel model =
 
 checkToken : Model -> ( Model, Cmd Msg )
 checkToken model =
-    case model.loginPageModel.token of
-        Just token ->
+    case model.loginPageModel.loginData of
+        Just loginData ->
             let
                 newAppModel =
-                    model.appHomePageModel |> App.setToken token
+                    model.appHomePageModel |> App.setLoginData loginData
             in
             ( model |> setAppHomePageModel newAppModel, Cmd.none )
 
@@ -197,7 +197,7 @@ subscriptions model =
         , Sub.map RegisterPageMsg (Ports.registerFailure RegisterPage.mapError)
         , Sub.map ConfirmUserPageMsg (Ports.confirmUserSuccess (always ConfirmUserPage.ConfirmUserSuccess))
         , Sub.map ConfirmUserPageMsg (Ports.confirmUserFailure ConfirmUserPage.mapError)
-        , Sub.map LoginPageMsg (Ports.loginSuccess LoginPage.decodeToken)
+        , Sub.map LoginPageMsg (Ports.loginSuccess LoginPage.decodeLoginData)
         , Sub.map LoginPageMsg (Ports.loginFailure LoginPage.mapError)
         , Sub.map AppHomePageMsg (Porter.subscriptions AppSync.porterConfig)
         ]

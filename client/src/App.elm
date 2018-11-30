@@ -1,4 +1,4 @@
-module App exposing (fileInputId, labelEditor, setMenuModel, setToken, update, view)
+module App exposing (fileInputId, labelEditor, setLoginData, setMenuModel, update, view)
 
 import AddLabelMenu
 import AddLabelMenuView
@@ -13,6 +13,7 @@ import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
 import Json.Decode as Decode
 import Json.Encode as Encode
+import LoginPage
 import Menu
 import MenuView
 import Porter
@@ -24,9 +25,9 @@ fileInputId =
     "fileInput"
 
 
-setToken : String -> AppModel.Model -> AppModel.Model
-setToken token model =
-    { model | token = token }
+setLoginData : LoginPage.LoginData -> AppModel.Model -> AppModel.Model
+setLoginData { token, organization, organizationId } model =
+    { model | token = token, organization = organization, organizationId = organizationId }
 
 
 setMenuModel menuModel model =
