@@ -3,8 +3,10 @@ module AddTeamMemberMenuView exposing (modal, update)
 import AddTeamMemberMenu
 import AppModel
 import AppMsg
+import AttributeBuilder
 import Bulma
 import Html.Styled as Html
+import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
 
 
@@ -14,10 +16,43 @@ modal model =
             "Add Team Member"
 
         body =
-            Bulma.labelledField "email" [ Bulma.textInput [ Events.onInput (AppMsg.AddTeamMemberMenuMsg << AppMsg.SetEmail) ] ]
+            Html.div
+                []
+                [ Bulma.labelledField
+                    "username"
+                    [ Bulma.textInput
+                        [ Attributes.placeholder "username"
+                        , Events.onInput (AppMsg.AddTeamMemberMenuMsg << AppMsg.SetUsername)
+                        ]
+                    ]
+                , Bulma.labelledField
+                    "email"
+                    [ Bulma.textInput
+                        [ Attributes.placeholder "email"
+                        , Events.onInput (AppMsg.AddTeamMemberMenuMsg << AppMsg.SetEmail)
+                        ]
+                    ]
+                ]
 
         footer =
-            [ Bulma.button [ Events.onClick (AppMsg.AddTeamMemberMenuMsg AppMsg.SaveTeamMember) ] "invite" ]
+            [ Bulma.button
+                ([ Bulma.isSuccessClass, Events.onClick (AppMsg.AddTeamMemberMenuMsg AppMsg.SaveTeamMember) ]
+                    |> AttributeBuilder.addIf
+                        (model.email == "" || model.username == "")
+                        [ Attributes.disabled True ]
+                    |> AttributeBuilder.addIf
+                        (model.state == AddTeamMemberMenu.Pending)
+                        [ Bulma.isLoadingClass ]
+                )
+                "invite"
+            , Html.span
+                ([ Bulma.helpClass
+                 , Bulma.isDangerClass
+                 ]
+                    |> AttributeBuilder.addIf (not <| model.state == AddTeamMemberMenu.Error) [ Bulma.isInvisibleClass ]
+                )
+                [ Html.text "Something went wrong, try again later." ]
+            ]
     in
     Bulma.modal model.isOpen title (AppMsg.AddTeamMemberMenuMsg AppMsg.ToggleAddTeamMemberMenu) body footer
 
@@ -33,3 +68,6 @@ update msg model =
 
         AppMsg.SaveTeamMember ->
             Debug.todo "save team member"
+
+        AppMsg.SetUsername username ->
+            ( model.addTeamMemberMenu |> AddTeamMemberMenu.setUsername username |> AppModel.asAddTeamMemberMenu model, Cmd.none )

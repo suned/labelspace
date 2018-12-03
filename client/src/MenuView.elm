@@ -18,6 +18,7 @@ module MenuView exposing
 
 import AddLabelMenu
 import AddLabelMenuView
+import AddTeamMemberMenu
 import AddTeamMemberMenuView
 import AppModel
 import AppMsg
@@ -242,6 +243,13 @@ update msg model =
                     AddLabelMenu.toggleIsOpen model.addLabelMenu
             in
             ( { model | addLabelMenu = newAddLabelMenuModel }, Cmd.none )
+
+        AppMsg.ToggleAddMenu Menu.AddTeamMemberMenuItem ->
+            let
+                newAddTeamMemberMenu =
+                    AddTeamMemberMenu.toggle model.addTeamMemberMenu
+            in
+            ( { model | addTeamMemberMenu = newAddTeamMemberMenu }, Cmd.none )
 
         AppMsg.ToggleMenu ->
             let

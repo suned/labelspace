@@ -56,3 +56,4 @@ type AddTeamMemberMenuMsg
     = ToggleAddTeamMemberMenu
     | SetEmail String
     | SaveTeamMember
+    | SetUsername String
