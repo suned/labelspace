@@ -1,7 +1,8 @@
-module Menu exposing (AddMenuItem(..), Menu, MenuItem(..), addDocumentLabel, addRelationLabel, addSpanLabel, init)
+module Menu exposing (AddMenuItem(..), Menu, MenuItem(..), addDocumentLabel, addRelationLabel, addSpanLabel, addTeamMember, init)
 
 import Dict
 import Labels
+import User
 
 
 type AddMenuItem
@@ -190,6 +191,20 @@ addLabel path label menu =
 addDocumentLabel : Labels.DocumentLabel -> Menu -> Menu
 addDocumentLabel (Labels.DocumentLabel { ref, label }) menu =
     addLabel [ "labels", "document labels" ] label menu
+
+
+addTeamMember : User.User -> Menu -> Menu
+addTeamMember user menu =
+    let
+        menuItem =
+            MenuItem { icon = "fas fa-user", isOpen = False, subItems = Dict.empty, addItem = Nothing }
+    in
+    case setMenuItem menuItem [ "team", user.email ] menu.team of
+        Just newTeam ->
+            { menu | team = newTeam }
+
+        Nothing ->
+            Debug.todo "team was removed from menu"
 
 
 addSpanLabel : Labels.SpanLabel -> Menu -> Menu

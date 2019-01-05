@@ -4,7 +4,7 @@ from unittest.mock import call
 import pytest
 from faunadb import query as q
 
-from backend.data_source_handler import handle
+from backend.faunadb_data_source_handler import handle
 
 
 def test_handler_creates_label(event_reader, mock_dependencies):

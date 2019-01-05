@@ -1,4 +1,4 @@
-port module Ports exposing (confirmUser, confirmUserFailure, confirmUserSuccess, fromAppSync, login, loginFailure, loginSuccess, register, registerFailure, registerSuccess, toAppSync, upload)
+port module Ports exposing (confirmUser, confirmUserFailure, confirmUserSuccess, fromAppSync, login, loginFailure, loginSuccess, newPasswordChallenge, newPasswordChallengeError, newPasswordRequired, register, registerFailure, registerSuccess, toAppSync, upload)
 
 import Json.Decode
 import Json.Encode
@@ -15,6 +15,9 @@ port confirmUser : Json.Encode.Value -> Cmd msg
 
 
 port login : Json.Encode.Value -> Cmd msg
+
+
+port newPasswordChallenge : Json.Encode.Value -> Cmd msg
 
 
 port upload : Json.Encode.Value -> Cmd msg
@@ -43,6 +46,12 @@ port loginSuccess : (Json.Decode.Value -> msg) -> Sub msg
 
 
 port loginFailure : (String -> msg) -> Sub msg
+
+
+port newPasswordChallengeError : (String -> msg) -> Sub msg
+
+
+port newPasswordRequired : (() -> msg) -> Sub msg
 
 
 port fromAppSync : (Json.Decode.Value -> msg) -> Sub msg

@@ -1,16 +1,20 @@
 from typing import Optional
+import logging
 
 from backend.dependencies import AWSDependencies
 from lib.annotation_database import AnnotationDatabase
 from backend.storage_manager import StorageManager
-from backend.database import Database, Organization
+from backend.database import Database, Organization, User
 from lib.immutable import Immutable
+
+log = logging.getLogger('labelspace.cognito_post_confirmation_handler')
 
 
 def handle(event,
            _,
            dependencies=AWSDependencies()
            ):
+    log.info(f'handling event {event}')
     return PostConfirmationHandler(
         database=dependencies.database,
         upload_bucket=dependencies.upload_bucket,
@@ -30,23 +34,12 @@ class PostConfirmationHandler(Immutable):
         self.database = database
         self.event = event
         self.cognito_client = cognito_client
-
-        if self.organization_exists():
-            self.organization = self.get_organization()
-        else:
-            self.organization = self.add_organization()
-
+        self.organization = self.add_organization()
         self.storage_manager = StorageManager(
             organization=self.organization,
             upload_bucket=upload_bucket,
             collection_bucket=collection_bucket
         )
-
-    def organization_exists(self):
-        organization_id = self.get_organization_id()
-        # TODO: necessary to check if database, buckets,
-        # TODO: roles etc set up correctly?
-        return organization_id is not None
 
     def get_organization_id(self) -> Optional[str]:
         organization_id = self.event['request']['userAttributes'].get(
@@ -55,38 +48,31 @@ class PostConfirmationHandler(Immutable):
             return None
         return organization_id
 
+    def get_organization_name(self) -> str:
+        return self.event['request']['userAttributes']['custom:organization']
+
     def get_organization(self):
         org_id = self.get_organization_id()
         return self.database.get_organization(org_id)
 
     def add_organization(self):
-        return self.database.create_organization(Organization())
+        organization_name = self.get_organization_name()
+        organization = Organization(organization_name=organization_name)
+        organization = self.database.create_organization(organization)
+        log.info(f'Created organization with ref: {organization.ref}')
+        return organization
 
     def handle(self):
-        if self.organization_exists():
-            return self.add_user_to_organization()
         return self.create_organization()
 
     def add_user_to_organization(self):
         return self.event
 
-    def update_user_attributes(self):
-        self.cognito_client.admin_update_user_attributes(
-            UserPoolId=self.event['userPoolId'],
-            Username=self.event['userName'],
-            UserAttributes=[
-                {
-                    'Name': 'custom:organizationId',
-                    'Value': self.organization.ref.id()
-                }
-            ]
-        )
-
     def create_organization(self):
         self.create_folders()
         annotation_database_secret = self.create_annotation_database()
         self.update_organization(annotation_database_secret)
-        self.update_user_attributes()
+        self.create_user()
         return self.event
 
     def create_folders(self):
@@ -95,6 +81,7 @@ class PostConfirmationHandler(Immutable):
 
     def create_annotation_database(self) -> str:
         name = f'{self.organization.ref.id()}-annotations'
+        log.info(f'creating annotation database {name}')
         secret = self.database.create_database(
             name=name,
             database=AnnotationDatabase,
@@ -105,3 +92,17 @@ class PostConfirmationHandler(Immutable):
     def update_organization(self, annotation_database_secret: str) -> Organization:
         organization = self.organization.clone(secret=annotation_database_secret)
         return self.database.update_organization(organization)
+
+    def get_sub(self):
+        return self.event['request']['userAttributes']['sub']
+
+    def get_email(self):
+        return self.event['request']['userAttributes']['email']
+
+    def create_user(self):
+        user = User(
+            sub=self.get_sub(),
+            email=self.get_email(),
+            organization=self.organization.ref
+        )
+        self.database.create_user(user)

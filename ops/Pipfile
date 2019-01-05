@@ -7,18 +7,20 @@
 "package" = "python -m package"
 
 [packages]
+backend = {editable = true, path = "../backend"}
 awscli = "*"
 aws-sam-cli = "*"
 boto3 = "*"
 faunadb = "*"
 ipython = "*"
 ipdb = "*"
-serum = "*"
-lib = {path = "../lib", editable = "true"}
+lib = {editable = true,path = "../lib"}
 sh = "*"
 plumbum = "*"
 "ruamel.yaml" = "*"
 envparse = "*"
+b8e3688 = {editable = true,path = "./../backend"}
+stringcase = "*"
 
 [requires]
 python_version = "3.6"

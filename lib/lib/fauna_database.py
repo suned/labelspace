@@ -1,5 +1,6 @@
 import json
 from typing import NewType, Dict, Any, TypeVar, Type, Tuple, List
+import logging
 
 from faunadb import query as q
 from faunadb.client import FaunaClient
@@ -10,6 +11,8 @@ from faunadb.objects import Ref
 from .immutable import Immutable
 
 Secret = NewType('Secret', str)
+
+log = logging.getLogger('labelspace.fauna_database')
 
 
 class FaunaObject(Immutable):
@@ -43,6 +46,11 @@ class FaunaObject(Immutable):
             d[name] = value
         return json.dumps(d)
 
+    def fields(self):
+        d = self.to_dict()
+        del d['ref']
+        return list(d.keys())
+
 
 T = TypeVar('T', bound=FaunaObject)
 
@@ -53,9 +61,19 @@ class ClientFactory:
 
 
 class FaunaIndex(Immutable):
-    def __init__(self, name: str, source: Type[T]):
-        self.name = name
+    def __init__(self, source: Type[T], fields=(), values=(), unique=False):
         self.source = source
+        self.fields = fields
+        self.values = values
+        self.unique = unique
+
+
+def _initialize_from_result(cls, result):
+    data = result['data']
+    for name, value in data.items():
+        if isinstance(value, list):
+            data[name] = tuple(value)
+    return cls(ref=result['ref'], **data)
 
 
 class FaunaDatabase(Immutable):
@@ -65,7 +83,7 @@ class FaunaDatabase(Immutable):
         raise NotImplementedError()
 
     @staticmethod
-    def indices() -> List[FaunaIndex]:
+    def indices() -> Dict[str, FaunaIndex]:
         raise NotImplementedError()
 
     def __init__(self,
@@ -76,11 +94,7 @@ class FaunaDatabase(Immutable):
 
     def _get(self, cls: Type[T], ref: str) -> T:
         result = self.client.query(q.get(q.ref(q.class_(cls.name()), ref)))
-        data = result['data']
-        for name, value in data.items():
-            if isinstance(value, list):
-                data[name] = tuple(value)
-        return cls(ref=result['ref'], **data)
+        return _initialize_from_result(cls, result)
 
     def _create(self, instance: T) -> T:
         result = self.client.query(
@@ -100,7 +114,7 @@ class FaunaDatabase(Immutable):
             q.create_class({'name': class_.name()})
         )
 
-    def create_database(self, 
+    def create_database(self,
                         name: str,
                         database: Type['FaunaDatabase'],
                         key_type: str) -> Secret:
@@ -113,12 +127,31 @@ class FaunaDatabase(Immutable):
         secret = Secret(key['secret'])
         database_instance = database(secret, self.client_factory)
         for class_ in database.classes():
+            log.info(f'creating class {class_}')
             database_instance._create_class(class_)
-        for index in database.indices():
-
+        for name, index in database.indices().items():
+            log.info(f'creating index {name}')
             database_instance.client.query(
                 q.create_index(
-                    {'name': index.name, 'source': q.class_(index.source.name())}
+                    {'name': name,
+                     'source': q.class_(index.source.name()),
+                     'terms': [
+                         {'field': ['data', field]} for field in index.fields
+                     ],
+                     'values': [
+                                   {
+                                       'field': ["data", value]
+                                   } for value in index.values
+                               ] + [
+                                   {'field': ['ref']}
+                               ],
+                     'unique': index.unique
+                     }
                 )
             )
         return Secret(secret)
+
+    def _index_get(self, index_name: str, terms):
+        index = self.indices()[index_name]
+        result = self.client.query(q.get(q.match(q.index(index_name), terms)))
+        return _initialize_from_result(index.source, result)

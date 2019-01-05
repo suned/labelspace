@@ -3,6 +3,7 @@ from pprint import pformat
 
 from backend.create_labels_handler import CreateLabelHandler
 from backend.dependencies import AWSDependencies
+from backend.get_team_handler import GetTeamHandler
 
 log = logging.getLogger('labelspace.data_source_handler')
 
@@ -13,4 +14,6 @@ def handle(event: dict,
     log.info(f'invoked with event\n: {pformat(event)}')
     if event['field'] == 'createLabel':
         return CreateLabelHandler(event, dependencies).handle()
+    if event['field'] == 'getTeam':
+        return GetTeamHandler(event, dependencies).handle()
     raise Exception(f'Unknown field: {event["field"]}')

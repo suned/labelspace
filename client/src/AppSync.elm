@@ -34,6 +34,13 @@ createLabelRequestEncoder operation label =
         ]
 
 
+inviteTeamMemberRequestEncoder operation email =
+    Json.Encode.object
+        [ ( "operation", Json.Encode.string operation )
+        , ( "data", Json.Encode.string email )
+        ]
+
+
 requestEncoder : AppMsg.AppSyncRequest -> Json.Encode.Value
 requestEncoder { operation, request } =
     case request of
@@ -45,6 +52,9 @@ requestEncoder { operation, request } =
 
         AppMsg.CreateRelationLabelRequest label ->
             createLabelRequestEncoder operation label
+
+        AppMsg.InviteTeamMemberRequest email ->
+            inviteTeamMemberRequestEncoder operation email
 
 
 handleError : Maybe String -> Json.Decode.Decoder (Result String Json.Decode.Value)
@@ -87,3 +97,6 @@ send msg request =
 
         AppMsg.CreateRelationLabelRequest _ ->
             Porter.send porterConfig msg (Porter.simpleRequest { operation = "CreateRelationLabel", request = request })
+
+        AppMsg.InviteTeamMemberRequest _ ->
+            Porter.send porterConfig msg (Porter.simpleRequest { operation = "InviteTeamMember", request = request })

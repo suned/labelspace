@@ -8,6 +8,9 @@ from faunadb.client import FaunaClient
 from faunadb import query as q
 import plumbum
 
+from lib.fauna_database import FaunaDatabase
+from backend.database import Database
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -139,20 +142,13 @@ def create_deploy_package():
 
 def create_database(stack_name):
     print_section('database')
-    client = FaunaClient(secret=os.environ['FAUNADB_SECRET'])
-    client.query(
-        q.create_database(
-            {'name': stack_name}
-        )
+    root_db = FaunaDatabase(secret=os.environ['FAUNADB_SECRET'])
+    secret = root_db.create_database(
+        name=stack_name,
+        database=Database,
+        key_type='admin'
     )
-    key = client.query(
-        q.create_key(
-            {'database': q.database(stack_name), 'role': 'admin'}
-        )
-    )
-    secret = key['secret']
-    FaunaClient(secret=secret).query(q.create_class({'name': 'Organization'}))
-    return key['secret']
+    return secret
 
 
 def delete_deploy_package():

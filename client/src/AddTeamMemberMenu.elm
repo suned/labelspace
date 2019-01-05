@@ -1,4 +1,4 @@
-module AddTeamMemberMenu exposing (Menu, State(..), init, setEmail, setUsername, toggle)
+module AddTeamMemberMenu exposing (Menu, State(..), init, setEmail, setState, toggle)
 
 
 type State
@@ -10,7 +10,6 @@ type State
 
 type alias Menu =
     { email : String
-    , username : String
     , state : State
     , isOpen : Bool
     }
@@ -19,20 +18,19 @@ type alias Menu =
 init =
     { email = ""
     , state = Init
-    , username = ""
     , isOpen = False
     }
 
 
 toggle : Menu -> Menu
 toggle model =
-    { model | isOpen = not model.isOpen }
+    { init | isOpen = not model.isOpen }
+
+
+setState state model =
+    { model | state = state }
 
 
 setEmail : String -> Menu -> Menu
 setEmail email model =
     { model | email = email }
-
-
-setUsername username model =
-    { model | username = username }

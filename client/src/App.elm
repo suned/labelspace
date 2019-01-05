@@ -26,8 +26,12 @@ fileInputId =
 
 
 setLoginData : LoginPage.LoginData -> AppModel.Model -> AppModel.Model
-setLoginData { token, organization, organizationId } model =
-    { model | token = token, organization = organization, organizationId = organizationId }
+setLoginData { token, team } model =
+    let
+        newMenu =
+            List.foldl (\member menu -> Menu.addTeamMember member menu) model.menu team
+    in
+    { model | token = token } |> AppModel.setMenu newMenu
 
 
 setMenuModel menuModel model =

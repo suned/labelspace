@@ -51,22 +51,22 @@ init apiUrl url key =
             Route.toRoute url
     in
     ( case route of
-        Route.Confirm username ->
+        Route.Confirm (Just username) ->
             Model
                 key
                 route
-                (RegisterPage.Model key "" "" "" "" RegisterPage.Init)
+                (RegisterPage.Model key "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" username ConfirmUserPage.Initial)
-                (LoginPage.Model "" "" Nothing key LoginPage.Init)
+                (LoginPage.Model "" "" "" Nothing key LoginPage.Init)
                 (AppModel.initModel "" "" "" "" [] [] [] [])
 
         _ ->
             Model
                 key
                 route
-                (RegisterPage.Model key "" "" "" "" RegisterPage.Init)
+                (RegisterPage.Model key "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" "" ConfirmUserPage.Initial)
-                (LoginPage.Model "" "" Nothing key LoginPage.Init)
+                (LoginPage.Model "" "" "" Nothing key LoginPage.Init)
                 (AppModel.initModel "" "" "" "" [] [] [] [])
     , case route of
         Route.App ->
@@ -142,10 +142,10 @@ update msg model =
                     model |> setRoute (Route.toRoute url)
             in
             case newModel.route of
-                Route.Confirm username ->
+                Route.Confirm (Just email) ->
                     let
                         confirmModel =
-                            ConfirmUserPage.Model "" username ConfirmUserPage.Initial
+                            ConfirmUserPage.Model "" email ConfirmUserPage.Initial
                     in
                     ( newModel |> setConfirmModel confirmModel
                     , Cmd.none
@@ -199,6 +199,8 @@ subscriptions model =
         , Sub.map ConfirmUserPageMsg (Ports.confirmUserFailure ConfirmUserPage.mapError)
         , Sub.map LoginPageMsg (Ports.loginSuccess LoginPage.decodeLoginData)
         , Sub.map LoginPageMsg (Ports.loginFailure LoginPage.mapError)
+        , Sub.map LoginPageMsg (Ports.newPasswordChallengeError (always LoginPage.NewPasswordError))
+        , Sub.map LoginPageMsg (Ports.newPasswordRequired (always LoginPage.NewPasswordRequired))
         , Sub.map AppHomePageMsg (Porter.subscriptions AppSync.porterConfig)
         ]
 

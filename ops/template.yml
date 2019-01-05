@@ -24,7 +24,7 @@ Resources:
         AutoVerifiedAttributes: [email]
         EmailConfiguration:
           SourceArn: arn:aws:ses:eu-west-1:315719867778:identity/welcome@labelspace.ai
-        AliasAttributes: [email]
+        UsernameAttributes: ['email']
         LambdaConfig:
           PostConfirmation: !GetAtt CognitoPostConfirmationTrigger.Arn
         Policies:
@@ -40,10 +40,6 @@ Resources:
             Mutable: false
             Required: true
           - Name: organization
-            AttributeDataType: String
-            Mutable: true
-            Required: false
-          - Name: organizationId
             AttributeDataType: String
             Mutable: true
             Required: false
@@ -98,6 +94,7 @@ Resources:
                   - cognito-idp:AdminGetUser
                   - cognito-idp:AdminSetUserSettings
                   - cognito-idp:AdminUpdateUserAttributes
+                  - cognito-idp:AdminCreateUser
                 Resource:
                   - arn:aws:cognito-idp:*:*:*
 
@@ -170,6 +167,29 @@ Resources:
             Resource:
               - !GetAtt FaunaDBDataSourceHandler.Arn
 
+  CognitoDataSourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - appsync.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: !Sub ${StackName}-CognitoDataSourcePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource:
+            - !GetAtt CognitoDataSourceHandler.Arn
+
   FaunaDBDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
@@ -178,6 +198,16 @@ Resources:
       ServiceRoleArn: !GetAtt FaunaDBDataSourceRole.Arn
       LambdaConfig:
         LambdaFunctionArn: !GetAtt FaunaDBDataSourceHandler.Arn
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  CognitoDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Name: CognitoDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt CognitoDataSourceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt CognitoDataSourceHandler.Arn
       ApiId: !GetAtt GraphQLApi.ApiId
 
   GraphQLSchema:
@@ -192,10 +222,12 @@ Resources:
 
         type Query {
             getLabels: [Label]
+            getTeam: [User]
         }
 
         type Mutation {
             createLabel(labelType: String, label: String): Label
+            inviteUser(email: String): User
         }
 
         type Label {
@@ -204,7 +236,10 @@ Resources:
             label: String!
         }
 
-
+        type User {
+          email: String!
+          sub: String
+        }
 
   SaveLabelResolver:
     Type: AWS::AppSync::Resolver
@@ -219,6 +254,25 @@ Resources:
             "operation": "Invoke",
             "payload": {
                 "field": "createLabel",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $context.result
+
+  InviteUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt CognitoDataSource.Name
+      TypeName: Mutation
+      FieldName: inviteUser
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "inviteUser",
                 "arguments": $utils.toJson($context.arguments),
                 "identity": $utils.toJson($context.identity)
             }
@@ -244,11 +298,30 @@ Resources:
         }
       ResponseMappingTemplate: $context.result
 
+  GetTeamResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt FaunaDBDataSource.Name
+      TypeName: Query
+      FieldName: getTeam
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "getTeam",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $context.result
+
   FaunaDBDataSourceHandler:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backend/deploy_package/
-      Handler: backend.data_source_handler.handle
+      Handler: backend.faunadb_data_source_handler.handle
       Runtime: python3.6
       Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
       Environment:
@@ -256,6 +329,18 @@ Resources:
           DATABASE_SECRET: !Ref DatabaseSecret
           DATABASE: !Ref Database
           USERPOOL_ID: !Ref UserPool
+
+  CognitoDataSourceHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/deploy_package/
+      Handler: backend.cognito_data_source_handler.handle
+      Runtime: python3.6
+      Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
+      Environment:
+        Variables:
+          USERPOOL_ID: !Ref UserPool
+          DATABASE_SECRET: !Ref DatabaseSecret
 
 Outputs:
   UserPoolId:

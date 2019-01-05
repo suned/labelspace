@@ -75,10 +75,10 @@ class AnnotationDatabase(FaunaDatabase):
 
     @staticmethod
     def indices():
-        return [
-            FaunaIndex(name='documents', source=Document),
-            FaunaIndex(name='labels', source=Label)
-        ]
+        return {
+            'documents': FaunaIndex(source=Document),
+            'labels': FaunaIndex(source=Label)
+        }
 
     def create_document(self, document: Document) -> Document:
         return self._create(document)

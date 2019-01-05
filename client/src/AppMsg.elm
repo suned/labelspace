@@ -22,6 +22,7 @@ type Request
     = CreateDocumentLabelRequest Labels.Label
     | CreateSpanLabelRequest Labels.Label
     | CreateRelationLabelRequest Labels.Label
+    | InviteTeamMemberRequest String
 
 
 type AppSyncMsg
@@ -56,4 +57,4 @@ type AddTeamMemberMenuMsg
     = ToggleAddTeamMemberMenu
     | SetEmail String
     | SaveTeamMember
-    | SetUsername String
+    | InviteTeamMemberResponse (Result String Json.Decode.Value)

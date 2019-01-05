@@ -1,14 +1,17 @@
 module LoginPage exposing (LoginData, Model, Msg(..), Reason(..), State(..), anyFieldsEmpty, buttonAttributes, decodeLoginData, encode, isEmpty, mapError, passwordHelp, passwordHelpText, setState, update, usernameAttributes, usernameHelp, view)
 
+import AttributeBuilder
 import Browser.Navigation as Nav
 import Bulma
+import Decoders
 import Html.Styled exposing (Attribute, Html, div, h1, text)
-import Html.Styled.Attributes exposing (disabled, placeholder, type_)
+import Html.Styled.Attributes exposing (disabled, placeholder, type_, value)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Ports
 import Route
+import User
 
 
 type Reason
@@ -22,18 +25,21 @@ type State
     = Init
     | Pending
     | Error Reason
+    | NewPasswordRequiredState
+    | NewPasswordPending
+    | NewPasswordErrorState
 
 
 type alias LoginData =
     { token : String
-    , organization : String
-    , organizationId : String
+    , team : List User.User
     }
 
 
 type alias Model =
     { username : String
     , password : String
+    , newPassword : String
     , loginData : Maybe LoginData
     , key : Nav.Key
     , state : State
@@ -43,19 +49,22 @@ type alias Model =
 type Msg
     = SetUsername String
     | SetPassword String
+    | SetNewPassword String
     | Submit
     | LoginSuccess LoginData
     | LoginError Reason
+    | NewPasswordRequired
+    | NewPasswordChallenge
+    | NewPasswordError
 
 
 decodeLoginData : Decode.Value -> Msg
 decodeLoginData data =
     let
         dataDecoder =
-            Decode.map3 LoginData
+            Decode.map2 LoginData
                 (Decode.field "token" Decode.string)
-                (Decode.field "organization" Decode.string)
-                (Decode.field "organizationId" Decode.string)
+                (Decode.field "team" (Decode.list Decoders.userDecoder))
     in
     case Decode.decodeValue dataDecoder data of
         Ok loginData ->
@@ -70,12 +79,18 @@ encode model =
     Encode.object
         [ ( "username", Encode.string model.username )
         , ( "password", Encode.string model.password )
+        , ( "newPassword", Encode.string model.newPassword )
         ]
 
 
 setState : State -> Model -> Model
 setState state model =
     { model | state = state }
+
+
+setPassword : String -> Model -> Model
+setPassword password model =
+    { model | password = password }
 
 
 mapError : String -> Msg
@@ -122,7 +137,10 @@ update msg model =
             ( { model | username = username }, Cmd.none )
 
         SetPassword password ->
-            ( { model | password = password }, Cmd.none )
+            ( model |> setPassword password, Cmd.none )
+
+        SetNewPassword password ->
+            ( { model | newPassword = password }, Cmd.none )
 
         Submit ->
             ( model |> setState Pending, Ports.login (encode model) )
@@ -132,6 +150,15 @@ update msg model =
 
         LoginError reason ->
             ( model |> setState (Error reason), Cmd.none )
+
+        NewPasswordRequired ->
+            ( model |> setState NewPasswordRequiredState, Cmd.none )
+
+        NewPasswordChallenge ->
+            ( model |> setState NewPasswordPending, Ports.newPasswordChallenge (encode model) )
+
+        NewPasswordError ->
+            ( model |> setState NewPasswordErrorState, Cmd.none )
 
 
 usernameAttributes : State -> List (Attribute a)
@@ -180,28 +207,58 @@ passwordHelpText state =
             "placeholder"
 
 
-view : Model -> Html Msg
-view model =
+newPasswordView model =
     Bulma.section
-        [ h1 [ Bulma.titleClass ] [ text "Login" ]
-        , Bulma.labelledField
-            "username"
-            [ Bulma.textInput
-                ([ placeholder "username"
-                 , onInput SetUsername
-                 ]
-                    ++ usernameAttributes model.state
-                )
-            , Bulma.helpText (usernameHelp model.state) "Unknown username"
-            ]
+        [ h1 [ Bulma.titleClass ] [ text "New Password Required" ]
         , Bulma.labelledField
             "password"
-            [ Bulma.passwordInput [ onInput SetPassword ]
+            [ Bulma.passwordInput [ onInput SetNewPassword, value model.newPassword ]
             , Bulma.helpText (passwordHelp model.state) (passwordHelpText model.state)
             ]
         , Bulma.field
             [ Bulma.button
-                ([ Bulma.isLinkClass, onClick Submit ] ++ buttonAttributes model)
+                ([ Bulma.isLinkClass, onClick NewPasswordChallenge ]
+                    |> AttributeBuilder.addIf (model.state == NewPasswordPending) [ Bulma.isLoadingClass ]
+                    |> AttributeBuilder.addIf (model.newPassword == "") [ disabled True ]
+                )
                 "login"
             ]
         ]
+
+
+view : Model -> Html Msg
+view model =
+    case model.state of
+        NewPasswordRequiredState ->
+            newPasswordView model
+
+        NewPasswordPending ->
+            newPasswordView model
+
+        NewPasswordErrorState ->
+            newPasswordView model
+
+        _ ->
+            Bulma.section
+                [ h1 [ Bulma.titleClass ] [ text "Login" ]
+                , Bulma.labelledField
+                    "email"
+                    [ Bulma.textInput
+                        ([ placeholder "email"
+                         , onInput SetUsername
+                         ]
+                            ++ usernameAttributes model.state
+                        )
+                    , Bulma.helpText (usernameHelp model.state) "Unknown user"
+                    ]
+                , Bulma.labelledField
+                    "password"
+                    [ Bulma.passwordInput [ onInput SetPassword, value model.password ]
+                    , Bulma.helpText (passwordHelp model.state) (passwordHelpText model.state)
+                    ]
+                , Bulma.field
+                    [ Bulma.button
+                        ([ Bulma.isLinkClass, onClick Submit ] ++ buttonAttributes model)
+                        "login"
+                    ]
+                ]

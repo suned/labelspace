@@ -18,11 +18,6 @@ import('./elm.compiled.js').then(function ({Elm}) {
         };
         const userPool = new CognitoUserPool(poolData);
 
-        const dataEmail = {
-            Name : 'email',
-            Value : data.email
-        };
-        const attributeEmail = new CognitoUserAttribute(dataEmail);
         const dataOrg = {
             Name: 'custom:organization',
             Value: data.organization
@@ -30,11 +25,10 @@ import('./elm.compiled.js').then(function ({Elm}) {
         const attributeOrganization = new CognitoUserAttribute(dataOrg)
 
         const attributeList = [
-            attributeEmail,
             attributeOrganization
         ];
 
-        userPool.signUp(data.username, data.password, attributeList, null, function(err, result){
+        userPool.signUp(data.email, data.password, attributeList, null, function(err, result){
             if (err) {
                 console.log(err);
                 app.ports.registerFailure.send([err.code, err.message]);
@@ -51,19 +45,55 @@ import('./elm.compiled.js').then(function ({Elm}) {
         };
         const userPool = new CognitoUserPool(poolData);
         const userData = {
-          Username: data.username,
+          Username: decodeURIComponent(data.username),
           Pool: userPool
         };
 
         const cognitoUser = new CognitoUser(userData);
         cognitoUser.confirmRegistration(data.code, true, function (err, result) {
           if (err) {
+            console.log(err)
             console.log(err.stack);
             app.ports.confirmUserFailure.send(err.code);
             return
           }
           app.ports.confirmUserSuccess.send(null);
       });
+    };
+
+    const getTeam = function () {
+      const query = gql`
+        query getTeam {
+          getTeam {
+            sub,
+            email
+          }
+        }
+      `;
+      return appSyncClient.query(
+        { query: query }
+      );
+    };
+
+    const loginSuccess = function (authenticationResult) {
+        const idToken = authenticationResult.getIdToken().getJwtToken();
+        appSyncClient = new AWSAppSyncClient(
+          {
+            disableOffline: true,
+            url: process.env.LS_API_URL,
+            region: 'eu-west-1',
+            auth: {
+              type: 'AMAZON_COGNITO_USER_POOLS',
+              jwtToken: async () => idToken
+            }
+          }
+        );
+        getTeam().then(function (result) {
+            const team = result.data.getTeam
+            app.ports.loginSuccess.send(
+              { token: idToken, team: team }
+            );
+        });
     };
 
     const loginHandler = function (data) {
@@ -83,38 +113,14 @@ import('./elm.compiled.js').then(function ({Elm}) {
         };
         const cognitoUser = new CognitoUser(userData);
         cognitoUser.authenticateUser(authenticationDetails, {
-            onSuccess: function (result) {
-                const idToken = result.getIdToken().getJwtToken();
-                appSyncClient = new AWSAppSyncClient(
-                  {
-                    disableOffline: true,
-                    url: process.env.LS_API_URL,
-                    region: 'eu-west-1',
-                    auth: {
-                      type: 'AMAZON_COGNITO_USER_POOLS',
-                      jwtToken: async () => idToken
-                    }
-                  }
-                );
-                cognitoUser.getUserAttributes(function (err, result) {
-                  if (err) {
-                    app.ports.loginFailure.send(err.code);
-                  }
-                  const organization = result.find(attr => attr.Name === 'custom:organization').Value
-                  const organizationId = result.find(attr => attr.Name === 'custom:organizationId').Value
-                  app.ports.loginSuccess.send(
-                    { token: idToken
-                    , organization: organization
-                    , organizationId: organizationId
-                    }
-                  );
-                });
-            },
+            onSuccess: loginSuccess,
             onFailure: function(err) {
                 console.log(err);
                 app.ports.loginFailure.send(err.code)
             },
-
+            newPasswordRequired: function(userAttributes, requiredAttributes) {
+              app.ports.newPasswordRequired.send(null)
+            }
         });
     };
 
@@ -146,11 +152,32 @@ import('./elm.compiled.js').then(function ({Elm}) {
         );
       }).catch(error => {
         app.ports.fromAppSync.send(
-          { id: id, msg: { operation: operation, error: error.message }}
+          { id: id, msg: { operation: operation, error: error.message } }
         );
       });
     };
 
+    const inviteTeamMember = function (id, email, operation) {
+      const mutation = gql`
+        mutation inviteUser {
+          inviteUser(email: "${email}") {
+            email
+            sub
+          }
+        }
+      `;
+      appSyncClient.mutate(
+        {mutation: mutation }
+      ).then(function (result) {
+        app.ports.fromAppSync.send(
+          { id: id, msg: { operation: operation, data: result.data.inviteUser } }
+        )
+      }).catch(error => {
+        app.ports.fromAppSync.send(
+          { id: id, msg: {operation: operation, error: error.message } }
+        )
+      });
+    };
     const toAppSyncHandler = function (idWithMsg) {
       const data = idWithMsg.msg.data
       const operation = idWithMsg.msg.operation
@@ -158,11 +185,45 @@ import('./elm.compiled.js').then(function ({Elm}) {
       switch (operation) {
         case "CreateDocumentLabel":
           createLabel("document", data.label, id, operation);
+          break;
         case "CreateSpanLabel":
           createLabel("span", data.label, id, operation);
+          break;
         case "CreateRelationLabel":
           createLabel("relation", data.label, id, operation);
+          break;
+        case "InviteTeamMember":
+          inviteTeamMember(id, data, operation);
+          break;
       }
+    };
+
+    const newPasswordChallengeHandler = function (data) {
+      const authenticationData = {
+          Username : data.username,
+          Password : data.password,
+      };
+      const authenticationDetails = new AuthenticationDetails(authenticationData);
+      const poolData = {
+          UserPoolId : process.env.LS_COGNITO_USER_POOL_ID,
+          ClientId : process.env.LS_COGNITO_CLIENT_ID
+      };
+      const userPool = new CognitoUserPool(poolData);
+      const userData = {
+          Username : data.username,
+          Pool : userPool
+      };
+      const cognitoUser = new CognitoUser(userData);
+      cognitoUser.authenticateUser(authenticationDetails, {
+          onSuccess: loginSuccess,
+          onFailure: function(err) {
+              console.log(err);
+              app.ports.newPasswordChallengeError.send(err.code)
+          },
+          newPasswordRequired: function(userAttributes, requiredAttributes) {
+            cognitoUser.completeNewPasswordChallenge(data.newPassword, {}, this)
+          }
+      });
     };
 
     app.ports.register.subscribe(registerHandler);
@@ -170,4 +231,5 @@ import('./elm.compiled.js').then(function ({Elm}) {
     app.ports.login.subscribe(loginHandler);
     app.ports.upload.subscribe(uploadHandler);
     app.ports.toAppSync.subscribe(toAppSyncHandler);
+    app.ports.newPasswordChallenge.subscribe(newPasswordChallengeHandler);
 });
