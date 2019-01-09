@@ -136,6 +136,10 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${StackName}-labelspace-collection
+      CorsConfiguration:
+        CorsRules:
+        - AllowedOrigins: ['*']
+          AllowedMethods: ['GET', 'HEAD']
 
   UploadHandler:
     Type: AWS::Serverless::Function
