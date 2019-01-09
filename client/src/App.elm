@@ -1,4 +1,4 @@
-module App exposing (fileInputId, labelEditor, setLoginData, setMenuModel, update, view)
+module App exposing (fileInputId, setLoginData, setMenuModel, update, view)
 
 import AddLabelMenu
 import AddLabelMenuView
@@ -8,12 +8,14 @@ import AppMsg
 import AppSync
 import Bulma
 import Css
+import Editor
+import EditorView
 import Html.Styled as Html
 import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
 import Json.Decode as Decode
 import Json.Encode as Encode
-import LoginPage
+import LoginData
 import Menu
 import MenuView
 import Porter
@@ -25,31 +27,27 @@ fileInputId =
     "fileInput"
 
 
-setLoginData : LoginPage.LoginData -> AppModel.Model -> AppModel.Model
-setLoginData { token, team } model =
-    let
-        newMenu =
-            List.foldl (\member menu -> Menu.addTeamMember member menu) model.menu team
-    in
-    { model | token = token } |> AppModel.setMenu newMenu
+setLoginData : LoginData.LoginData -> AppModel.Model -> AppModel.Model
+setLoginData { token, team, spanLabels, documentLabels, relationLabels, documents } model =
+    { model
+        | token = token
+        , teamMembers = team
+        , spanLabels = spanLabels
+        , documentLabels = documentLabels
+        , relationLabels = relationLabels
+        , documents = documents
+    }
 
 
 setMenuModel menuModel model =
     { model | menuModel = menuModel }
 
 
-labelEditor model =
-    Html.div [ Bulma.columnClass ]
-        [ Html.div [ Bulma.sectionClass ]
-            [ Html.h1 [ Bulma.titleClass ] [ Html.text "Welcome to labelspace!" ] ]
-        ]
-
-
 view : AppModel.Model -> Html.Html AppMsg.Msg
 view model =
     Html.div [ Bulma.columnsClass ]
         [ MenuView.menu model
-        , labelEditor model
+        , EditorView.editor model
         ]
 
 
@@ -71,3 +69,6 @@ update msg model =
 
         AppMsg.AddTeamMemberMenuMsg addTeamMemberMenuMsg ->
             AddTeamMemberMenuView.update addTeamMemberMenuMsg model
+
+        AppMsg.EditorMsg editorMsg ->
+            EditorView.update editorMsg model

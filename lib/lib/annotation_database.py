@@ -48,16 +48,16 @@ class Relation(FaunaObject):
 
 class Document(FaunaObject):
     def __init__(self,
-                 s3_txt_link: str,
-                 s3_html_link: str,
+                 original_name: str,
+                 converted: bool,
                  spans: Tuple[Ref] = (),
                  relations: Tuple[Ref] = (),
                  labels: Tuple[Ref] = (),
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
-        self.s3_txt_link = s3_txt_link
-        self.s3_html_link = s3_html_link
+        self.original_name = original_name
+        self.converted = converted
         self.spans = spans
         self.relations = relations
         self.labels = labels
@@ -76,8 +76,8 @@ class AnnotationDatabase(FaunaDatabase):
     @staticmethod
     def indices():
         return {
-            'documents': FaunaIndex(source=Document),
-            'labels': FaunaIndex(source=Label)
+            'documents': FaunaIndex(source=Document, values=('original_name', 'converted')),
+            'labels': FaunaIndex(source=Label, values=('label', 'label_type'))
         }
 
     def create_document(self, document: Document) -> Document:
@@ -91,21 +91,44 @@ class AnnotationDatabase(FaunaDatabase):
     def get_document(self, ref: str) -> Document:
         return self._get(Document, ref)
 
-    def get_documents(self) -> Iterator[Document]:
-        results = self.client.query(q.paginate(q.match(q.index('documents'))))
-        for ref in results['data']:
-            yield self.get_document(ref)
+    def get_converted_documents(self) -> Iterator[Document]:
+        results = self.client.query(
+            q.filter_(
+                q.lambda_(
+                    ['original_name', 'converted', 'ref'],
+                    q.var('converted')
+                ),
+                q.paginate(q.match(q.index('documents')))
+            )
+        )
+        documents = []
+        for data in results['data']:
+            documents.append(
+                Document(
+                    original_name=data[0],
+                    converted=data[1],
+                    ref=data[2]
+                )
+            )
+        return documents
 
-    def create_label(self,
-                     label: Label
-                     ) -> Label:
+    def create_label(self, label: Label) -> Label:
         return self._create(label)
 
-    def create_span(self, span: Span) -> Span:
-        return self._create(span)
-
-    def get_span(self, ref: str) -> Span:
-        return self._get(Span, ref)
+    def get_labels(self):
+        results = self.client.query(
+            q.paginate(q.match(q.index('labels')))
+        )
+        labels = []
+        for data in results['data']:
+            labels.append(
+                Label(
+                    label=data[0],
+                    label_type=data[1],
+                    ref=data[2]
+                )
+            )
+        return labels
 
 
 

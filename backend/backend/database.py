@@ -1,4 +1,4 @@
-from typing import List, Type, Tuple, Dict
+from typing import List, Type, Tuple, Dict, Union
 from faunadb.objects import Ref
 from faunadb import query as q
 
@@ -48,8 +48,12 @@ class Database(FaunaDatabase):
     def create_organization(self, organization: Organization) -> Organization:
         return self._create(organization)
 
-    def get_organization(self, ref: Ref) -> Organization:
-        return self._get(Organization, ref.id())
+    def get_organization(self, ref: Union[str, Ref]) -> Organization:
+        if isinstance(ref, Ref):
+            id_ = ref.id()
+        else:
+            id_ = ref
+        return self._get(Organization, id_)
 
     def update_organization(self, organization: Organization) -> Organization:
         return self._update(organization)

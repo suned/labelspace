@@ -6,9 +6,13 @@ module AppModel exposing
     , addTeamMember
     , asAddLabelMenu
     , asAddTeamMemberMenu
+    , asEditor
+    , asMenu
+    , flip
     , initModel
     , setAddLabelMenu
     , setApiUrl
+    , setEditor
     , setMenu
     , setToken
     )
@@ -16,16 +20,14 @@ module AppModel exposing
 import AddLabelMenu
 import AddTeamMemberMenu
 import AppMsg
+import Document
+import Editor
 import Http
 import Json.Decode
 import Labels
 import Menu
 import Porter
 import User
-
-
-type alias Editor =
-    {}
 
 
 type alias Model =
@@ -40,7 +42,9 @@ type alias Model =
     , spanLabels : List Labels.SpanLabel
     , relationLabels : List Labels.RelationLabel
     , teamMembers : List User.User
-    , editor : Editor
+    , documents : List Document.Document
+    , openDocument : Maybe Document.Document
+    , editor : Editor.Editor
     , porter : Porter.Model AppMsg.AppSyncRequest (Result String Json.Decode.Value) AppMsg.Msg
     }
 
@@ -70,6 +74,10 @@ setMenu menu model =
     { model | menu = menu }
 
 
+asMenu =
+    flip setMenu
+
+
 setToken token model =
     { model | token = token }
 
@@ -81,63 +89,61 @@ setApiUrl apiUrl model =
 addDocumentLabel : Labels.DocumentLabel -> Model -> Model
 addDocumentLabel label model =
     let
-        newMenu =
-            Menu.addDocumentLabel label model.menu
-
         oldLabels =
             model.documentLabels
     in
-    { model | menu = newMenu, documentLabels = label :: oldLabels }
+    { model | documentLabels = label :: oldLabels }
 
 
 addSpanLabel : Labels.SpanLabel -> Model -> Model
 addSpanLabel label model =
     let
-        newMenu =
-            Menu.addSpanLabel label model.menu
-
         oldLabels =
             model.spanLabels
     in
-    { model | menu = newMenu, spanLabels = label :: oldLabels }
+    { model | spanLabels = label :: oldLabels }
 
 
 addRelationLabel : Labels.RelationLabel -> Model -> Model
 addRelationLabel label model =
     let
-        newMenu =
-            Menu.addRelationLabel label model.menu
-
         oldLabels =
             model.relationLabels
     in
-    { model | menu = newMenu, relationLabels = label :: oldLabels }
+    { model | relationLabels = label :: oldLabels }
 
 
 addTeamMember user model =
     let
-        newMenu =
-            Menu.addTeamMember user model.menu
-
         oldTeam =
             model.teamMembers
     in
-    { model | menu = newMenu, teamMembers = user :: oldTeam }
+    { model | teamMembers = user :: oldTeam }
 
 
-initModel : String -> String -> String -> String -> List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.RelationLabel -> List User.User -> Model
-initModel apiUrl token organizationId organization documentLabels spanLabels relationLabels team =
+setEditor editor model =
+    { model | editor = editor }
+
+
+asEditor =
+    flip setEditor
+
+
+initModel : String -> String -> String -> String -> List Labels.DocumentLabel -> List Labels.SpanLabel -> List Labels.RelationLabel -> List User.User -> List Document.Document -> Model
+initModel apiUrl token organizationId organization documentLabels spanLabels relationLabels team documents =
     { token = token
     , organization = organization
     , organizationId = organizationId
     , porter = Porter.init
     , apiUrl = apiUrl
-    , editor = {}
+    , openDocument = Nothing
+    , editor = Editor.init
     , documentLabels = documentLabels
     , relationLabels = relationLabels
     , spanLabels = spanLabels
-    , teamMembers = []
+    , teamMembers = team
+    , documents = documents
     , addLabelMenu = AddLabelMenu.init
     , addTeamMemberMenu = AddTeamMemberMenu.init
-    , menu = Menu.init documentLabels spanLabels relationLabels (List.map (\m -> m.email) team)
+    , menu = Menu.init
     }

@@ -4,11 +4,13 @@ import AttributeBuilder
 import Browser.Navigation as Nav
 import Bulma
 import Decoders
+import Document
 import Html.Styled exposing (Attribute, Html, div, h1, text)
 import Html.Styled.Attributes exposing (disabled, placeholder, type_, value)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Labels
 import Ports
 import Route
 import User
@@ -33,6 +35,10 @@ type State
 type alias LoginData =
     { token : String
     , team : List User.User
+    , documents : List Document.Document
+    , spanLabels : List Labels.SpanLabel
+    , documentLabels : List Labels.DocumentLabel
+    , relationLabels : List Labels.RelationLabel
     }
 
 
@@ -62,9 +68,13 @@ decodeLoginData : Decode.Value -> Msg
 decodeLoginData data =
     let
         dataDecoder =
-            Decode.map2 LoginData
+            Decode.map6 LoginData
                 (Decode.field "token" Decode.string)
                 (Decode.field "team" (Decode.list Decoders.userDecoder))
+                (Decode.field "documents" (Decode.list Decoders.documentDecoder))
+                (Decode.field "spanLabels" (Decode.list Decoders.spanLabelDecoder))
+                (Decode.field "documentLabels" (Decode.list Decoders.documentLabelDecoder))
+                (Decode.field "relationLabels" (Decode.list Decoders.relationLabelDecoder))
     in
     case Decode.decodeValue dataDecoder data of
         Ok loginData ->

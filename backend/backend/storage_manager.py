@@ -30,8 +30,7 @@ class StorageManager(Immutable):
         self.collection_bucket.put_object(html_path, html_bytes)
         self.collection_bucket.put_object(txt_path, txt_bytes)
 
-    def read_from_upload(self, name) -> bytes:
+    def read_from_upload(self, key) -> bytes:
         file = io.BytesIO()
-        file_path = self._path(name)
-        self.upload_bucket.download_fileobj(file_path, file)
+        self.upload_bucket.download_fileobj(key, file)
         return file.read()

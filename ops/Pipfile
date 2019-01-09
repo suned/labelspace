@@ -7,7 +7,7 @@
 "package" = "python -m package"
 
 [packages]
-backend = {editable = true, path = "../backend"}
+backend = {editable = true,path = "../backend"}
 awscli = "*"
 aws-sam-cli = "*"
 boto3 = "*"
@@ -21,6 +21,7 @@ plumbum = "*"
 envparse = "*"
 b8e3688 = {editable = true,path = "./../backend"}
 stringcase = "*"
+cloudconvert = "*"
 
 [requires]
 python_version = "3.6"

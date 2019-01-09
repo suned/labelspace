@@ -126,11 +126,84 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${StackName}-labelspace-upload
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedMethods: ['POST', 'HEAD']
+
 
   CollectionBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${StackName}-labelspace-collection
+
+  UploadHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: backend.upload_handler.handle
+      Runtime: python3.6
+      CodeUri: ../backend/deploy_package
+      Timeout: 15
+      Policies:
+      - S3CrudPolicy:
+          BucketName: !Sub ${StackName}-labelspace-collection
+      - S3CrudPolicy:
+          BucketName: !Sub ${StackName}-labelspace-upload
+      - Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource:
+          - arn:aws:logs:*:*:*
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - arn:aws:secretsmanager:eu-west-1:315719867778:secret:CLOUDCONVERT_API_KEY-Rb8agR
+      Events:
+        UploadEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadBucket
+            Events: s3:ObjectCreated:Post
+      Environment:
+        Variables:
+          DATABASE_SECRET: !Ref DatabaseSecret
+          COLLECTION_BUCKET: !Sub ${StackName}-labelspace-collection
+          UPLOAD_BUCKET: !Sub ${StackName}-labelspace-upload
+
+  CollectionHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: backend.collection_handler.handle
+      Runtime: python3.6
+      CodeUri: ../backend/deploy_package
+      Policies:
+      - S3CrudPolicy:
+          BucketName: !Sub ${StackName}-labelspace-collection
+      - S3CrudPolicy:
+          BucketName: !Sub ${StackName}-labelspace-upload
+      - Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource:
+          - arn:aws:logs:*:*:*
+      Events:
+        UploadEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref CollectionBucket
+            Events: s3:ObjectCreated:Put
+      Environment:
+        Variables:
+          DATABASE_SECRET: !Ref DatabaseSecret
+          COLLECTION_BUCKET: !Sub ${StackName}-labelspace-collection
+          UPLOAD_BUCKET: !Sub ${StackName}-labelspace-upload
 
   ######################### AppSync #########################
   GraphQLApi:
@@ -144,30 +217,8 @@ Resources:
         AwsRegion: eu-west-1
         DefaultAction: ALLOW
 
-  FaunaDBDataSourceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-              - appsync.amazonaws.com
-          Action:
-            - sts:AssumeRole
-      Policies:
-      - PolicyName: !Sub ${StackName}-FaunaDBDataSourcePolicy
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-              - lambda:InvokeFunction
-            Resource:
-              - !GetAtt FaunaDBDataSourceHandler.Arn
 
-  CognitoDataSourceRole:
+  DataSourceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -189,13 +240,15 @@ Resources:
             - lambda:InvokeFunction
             Resource:
             - !GetAtt CognitoDataSourceHandler.Arn
+            - !GetAtt FaunaDBDataSourceHandler.Arn
+            - !GetAtt S3DataSourceHandler.Arn
 
   FaunaDBDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
       Name: FaunaDBDataSource
       Type: AWS_LAMBDA
-      ServiceRoleArn: !GetAtt FaunaDBDataSourceRole.Arn
+      ServiceRoleArn: !GetAtt DataSourceRole.Arn
       LambdaConfig:
         LambdaFunctionArn: !GetAtt FaunaDBDataSourceHandler.Arn
       ApiId: !GetAtt GraphQLApi.ApiId
@@ -205,9 +258,19 @@ Resources:
     Properties:
       Name: CognitoDataSource
       Type: AWS_LAMBDA
-      ServiceRoleArn: !GetAtt CognitoDataSourceRole.Arn
+      ServiceRoleArn: !GetAtt DataSourceRole.Arn
       LambdaConfig:
         LambdaFunctionArn: !GetAtt CognitoDataSourceHandler.Arn
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  S3DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Name: S3DataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt DataSourceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt S3DataSourceHandler.Arn
       ApiId: !GetAtt GraphQLApi.ApiId
 
   GraphQLSchema:
@@ -223,6 +286,19 @@ Resources:
         type Query {
             getLabels: [Label]
             getTeam: [User]
+            getS3UploadPost: S3UploadPost
+            getDocuments: [Document]
+            getDocumentLink(ref: String): String
+        }
+
+        type Document {
+          ref: String
+          name: String
+        }
+
+        type S3UploadPost {
+          url: String
+          fields: AWSJSON
         }
 
         type Mutation {
@@ -298,6 +374,25 @@ Resources:
         }
       ResponseMappingTemplate: $context.result
 
+  GetDocumentsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt FaunaDBDataSource.Name
+      TypeName: Query
+      FieldName: getDocuments
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "getDocuments",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $context.result
+
   GetTeamResolver:
     Type: AWS::AppSync::Resolver
     Properties:
@@ -316,6 +411,45 @@ Resources:
             }
         }
       ResponseMappingTemplate: $context.result
+
+  GetS3UploadPostResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt S3DataSource.Name
+      TypeName: Query
+      FieldName: getS3UploadPost
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "getS3UploadPost",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $utils.toJson($context.result)
+
+
+  GetDocumentLinkResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt S3DataSource.Name
+      TypeName: Query
+      FieldName: getDocumentLink
+      RequestMappingTemplate: |
+        {
+            "version": "2017-02-28",
+            "operation": "Invoke",
+            "payload": {
+                "field": "getDocumentLink",
+                "arguments": $utils.toJson($context.arguments),
+                "identity": $utils.toJson($context.identity)
+            }
+        }
+      ResponseMappingTemplate: $utils.toJson($context.result)
 
   FaunaDBDataSourceHandler:
     Type: AWS::Serverless::Function
@@ -341,6 +475,19 @@ Resources:
         Variables:
           USERPOOL_ID: !Ref UserPool
           DATABASE_SECRET: !Ref DatabaseSecret
+
+  S3DataSourceHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/deploy_package/
+      Handler: backend.s3_data_source_handler.handle
+      Runtime: python3.6
+      Role: !GetAtt CognitoPostConfirmationTriggerRole.Arn
+      Environment:
+        Variables:
+          DATABASE_SECRET: !Ref DatabaseSecret
+          COLLECTION_BUCKET: !Ref CollectionBucket
+          UPLOAD_BUCKET: !Ref UploadBucket
 
 Outputs:
   UserPoolId:

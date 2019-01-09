@@ -41,6 +41,13 @@ inviteTeamMemberRequestEncoder operation email =
         ]
 
 
+getDocumentRequestEncoder operation document =
+    Json.Encode.object
+        [ ( "operation", Json.Encode.string operation )
+        , ( "data", Json.Encode.string document.ref )
+        ]
+
+
 requestEncoder : AppMsg.AppSyncRequest -> Json.Encode.Value
 requestEncoder { operation, request } =
     case request of
@@ -55,6 +62,9 @@ requestEncoder { operation, request } =
 
         AppMsg.InviteTeamMemberRequest email ->
             inviteTeamMemberRequestEncoder operation email
+
+        AppMsg.GetDocumentLinkRequest document ->
+            getDocumentRequestEncoder operation document
 
 
 handleError : Maybe String -> Json.Decode.Decoder (Result String Json.Decode.Value)
@@ -100,3 +110,6 @@ send msg request =
 
         AppMsg.InviteTeamMemberRequest _ ->
             Porter.send porterConfig msg (Porter.simpleRequest { operation = "InviteTeamMember", request = request })
+
+        AppMsg.GetDocumentLinkRequest _ ->
+            Porter.send porterConfig msg (Porter.simpleRequest { operation = "GetDocumentLink", request = request })

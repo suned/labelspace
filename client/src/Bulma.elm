@@ -1,4 +1,95 @@
-module Bulma exposing (boxClass, button, buttonClass, columnClass, columnsClass, containerClass, controlClass, deleteClass, fasFaUploadClass, field, fieldClass, file, fileClass, fileCtaClass, fileIconClass, fileInputClass, fileLabelClass, hasDropDown, hasTextLinkClass, hasTextWeightLight, helpClass, helpText, heroBodyClass, heroClass, heroFootClass, heroHeadClass, iconClass, inputClass, is1, is2, is3, is4, is5, is6, isActiveClass, isDangerClass, isDisabledClass, isHalfClass, isHoverable, isInvisibleClass, isLinkClass, isLoadingClass, isMultipleClass, isNarrowClass, isOneQuarterClass, isOneThirdClass, isPaddingLessClass, isPrimaryClass, isPulledRightClass, isSize1, isSize6, isSize7, isSuccessClass, isfullHeightClass, labelClass, labelledField, menuClass, menuLabelClass, menuListClass, modal, modalBackgroundClass, modalCardBodyClass, modalCardClass, modalCardFootClass, modalCardHeadClass, modalCardTitleClass, modalClass, navBarBrandClass, navBarClass, navbar, navbarDropdown, navbarDropdownClass, navbarEndClass, navbarItem, navbarItemClass, navbarLinkClass, navbarMenuClass, navbarStartClass, passwordInput, section, sectionClass, selectClass, subtitleClass, textInput, titleClass)
+module Bulma exposing
+    ( boxClass
+    , button
+    , buttonClass
+    , columnClass
+    , columnsClass
+    , containerClass
+    , controlClass
+    , deleteClass
+    , fasFaUploadClass
+    , field
+    , fieldClass
+    , file
+    , fileClass
+    , fileCtaClass
+    , fileIconClass
+    , fileInputClass
+    , fileLabelClass
+    , hasDropDown
+    , hasTextLinkClass
+    , hasTextWeightLight
+    , helpClass
+    , helpText
+    , heroBodyClass
+    , heroClass
+    , heroFootClass
+    , heroHeadClass
+    , iconClass
+    , inputClass
+    , is1
+    , is11
+    , is2
+    , is3
+    , is4
+    , is5
+    , is6
+    , isActiveClass
+    , isClipped
+    , isDangerClass
+    , isDisabledClass
+    , isGapless
+    , isHalfClass
+    , isHoverable
+    , isInvisibleClass
+    , isLinkClass
+    , isLoadingClass
+    , isMultipleClass
+    , isNarrowClass
+    , isOneQuarterClass
+    , isOneThirdClass
+    , isPaddingLessClass
+    , isPrimaryClass
+    , isPulledRightClass
+    , isSize1
+    , isSize6
+    , isSize7
+    , isSmall
+    , isSuccessClass
+    , isfullHeightClass
+    , labelClass
+    , labelledField
+    , menuClass
+    , menuLabelClass
+    , menuListClass
+    , modal
+    , modalBackgroundClass
+    , modalCardBodyClass
+    , modalCardClass
+    , modalCardFootClass
+    , modalCardHeadClass
+    , modalCardTitleClass
+    , modalClass
+    , navBarBrandClass
+    , navBarClass
+    , navbar
+    , navbarDropdown
+    , navbarDropdownClass
+    , navbarEndClass
+    , navbarItem
+    , navbarItemClass
+    , navbarLinkClass
+    , navbarMenuClass
+    , navbarStartClass
+    , passwordInput
+    , progressClass
+    , section
+    , sectionClass
+    , selectClass
+    , subtitleClass
+    , textInput
+    , titleClass
+    )
 
 import Html.Styled as Html
 import Html.Styled.Attributes as Attributes
@@ -39,6 +130,10 @@ inputClass =
 
 isLinkClass =
     Attributes.class "is-link"
+
+
+isClipped =
+    Attributes.class "is-clipped"
 
 
 buttonClass =
@@ -173,6 +268,10 @@ boxClass =
     Attributes.class "box"
 
 
+isGapless =
+    Attributes.class "is-gapless"
+
+
 isOneThirdClass =
     Attributes.class "is-one-third"
 
@@ -201,6 +300,10 @@ is6 =
     Attributes.class "is-6"
 
 
+is11 =
+    Attributes.class "is-11"
+
+
 iconClass =
     Attributes.class "icon"
 
@@ -219,6 +322,10 @@ isSize7 =
 
 isSize6 =
     Attributes.class "is-size-6"
+
+
+isSmall =
+    Attributes.class "is-small"
 
 
 hasTextWeightLight =
@@ -295,6 +402,10 @@ selectClass =
 
 isMultipleClass =
     Attributes.class "is-multiple"
+
+
+progressClass =
+    Attributes.class "progress"
 
 
 section : List (Html.Html a) -> Html.Html a

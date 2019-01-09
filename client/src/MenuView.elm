@@ -1,18 +1,11 @@
 module MenuView exposing
-    ( addDocumentMenuItem
-    , addMenuItem
-    , addSubItems
-    , closedMenu
+    ( closedMenu
     , encode
     , fileInputId
     , menu
-    , menuItemHtml
     , menuToggleHoverStyle
     , openMenu
     , setMenu
-    , toggleAddLabelModal
-    , toggleMenu
-    , toggleMenuItem
     , update
     )
 
@@ -22,16 +15,22 @@ import AddTeamMemberMenu
 import AddTeamMemberMenuView
 import AppModel
 import AppMsg
+import AppSync
+import AttributeBuilder
 import Bulma
 import Css
 import Dict
+import Document
+import Editor
 import Html.Styled as Html
 import Html.Styled.Attributes as Attributes
 import Html.Styled.Events as Events
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Labels
 import Menu
 import Ports
+import User
 
 
 fileInputId =
@@ -53,46 +52,144 @@ menuToggleHoverStyle =
         ]
 
 
-addDocumentMenuItem =
-    Html.div []
-        [ Html.input
-            [ Attributes.id fileInputId
-            , Attributes.type_ "file"
-            , Attributes.css [ Css.display Css.none ]
-            , Events.on "change" (Decode.succeed (AppMsg.MenuMsg (AppMsg.ToggleAddMenu Menu.AddDocumentsMenuItem)))
-            ]
-            []
-        , Html.label [ Attributes.for fileInputId ]
-            [ Html.li []
-                {- This should really be an <a> tag in order for bulma styling to appear
-                   Correctly. I couldn't get the label to trigger the file input
-                   when wrapping the <a> tag However, so instead I'm using a span and
-                   replicating the styles applied by Bulma here :(
-                -}
-                [ Html.span
-                    [ Bulma.hasTextLinkClass
-                    , Attributes.css
-                        [ Css.padding2 (Css.em 0.5) (Css.em 0.75)
-                        , Css.display Css.block
-                        , Css.cursor Css.pointer
-                        , Css.hover [ Css.backgroundColor (Css.hex "F5F5F5") ]
+addDocumentsHtml : Maybe Float -> Html.Html AppMsg.Msg
+addDocumentsHtml state =
+    case state of
+        Nothing ->
+            Html.div []
+                [ Html.input
+                    [ Attributes.id fileInputId
+                    , Attributes.type_ "file"
+                    , Attributes.multiple True
+                    , Attributes.accept ".doc,.docx,.html,.odt,.pages,.pdf,.rtf,.txt"
+                    , Attributes.css [ Css.display Css.none ]
+                    , Events.on "change" (Decode.succeed (AppMsg.MenuMsg Menu.ToggleAddDocumentsMenu))
+                    ]
+                    []
+                , Html.label [ Attributes.for fileInputId ]
+                    [ Html.li []
+                        {- This should really be an <a> tag in order for bulma styling to appear
+                           Correctly. I couldn't get the label to trigger the file input
+                           when wrapping the <a> tag However, so instead I'm using a span and
+                           replicating the styles applied by Bulma here :(
+                        -}
+                        [ Html.span
+                            [ Bulma.hasTextLinkClass
+                            , Attributes.css
+                                [ Css.padding2 (Css.em 0.5) (Css.em 0.75)
+                                , Css.display Css.block
+                                , Css.cursor Css.pointer
+                                , Css.hover [ Css.backgroundColor (Css.hex "F5F5F5") ]
+                                ]
+                            ]
+                            [ Html.span [ Bulma.iconClass ]
+                                [ Html.i [ Attributes.class "fas fa-plus" ] [] ]
+                            , Html.text "add"
+                            ]
                         ]
                     ]
-                    [ Html.span [ Bulma.iconClass ]
-                        [ Html.i [ Attributes.class "fas fa-plus" ] [] ]
-                    , Html.text "add"
+                ]
+
+        Just percent ->
+            Html.li
+                []
+                [ Html.a
+                    [ Attributes.href "" ]
+                    [ Html.progress
+                        [ Attributes.value (String.fromFloat percent)
+                        , Bulma.isLinkClass
+                        , Bulma.progressClass
+                        , Bulma.isSmall
+                        , Attributes.max "1.0"
+                        ]
+                        []
                     ]
                 ]
+
+
+icon iconType =
+    Html.span [ Bulma.iconClass ] [ Html.i [ Attributes.class iconType ] [] ]
+
+
+documentHtml : Maybe Document.Document -> Document.Document -> Html.Html AppMsg.Msg
+documentHtml openDocument document =
+    case openDocument of
+        Just d ->
+            Html.li
+                []
+                [ Html.a
+                    ([ Attributes.href ""
+                     ]
+                        |> AttributeBuilder.addIf
+                            (document == d)
+                            [ Bulma.isActiveClass ]
+                        |> AttributeBuilder.addIf
+                            (not <| document == d)
+                            [ document |> Menu.OpenDocument |> AppMsg.MenuMsg |> Events.onClick ]
+                    )
+                    [ icon "fas fa-file"
+                    , Html.text document.name
+                    ]
+                ]
+
+        Nothing ->
+            Html.li
+                []
+                [ Html.a
+                    [ Attributes.href ""
+                    , document |> Menu.OpenDocument |> AppMsg.MenuMsg |> Events.onClick
+                    ]
+                    [ icon "fas fa-file"
+                    , Html.text document.name
+                    ]
+                ]
+
+
+documentsHtml : AppModel.Model -> List (Html.Html AppMsg.Msg)
+documentsHtml model =
+    List.map (documentHtml model.openDocument) model.documents
+
+
+documentsMenuHtml : AppModel.Model -> Html.Html AppMsg.Msg
+documentsMenuHtml model =
+    let
+        subMenuHtml =
+            if model.menu.documents.isOpen then
+                [ Html.ul []
+                    ([ addDocumentsHtml model.menu.documents.uploadState
+                     ]
+                        ++ documentsHtml model
+                    )
+                ]
+
+            else
+                []
+    in
+    Html.li
+        []
+        ([ Html.a
+            [ Attributes.href ""
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleDocumentsMenu)
             ]
-        ]
+            [ icon "fas fa-copy"
+            , Html.text "documents"
+            ]
+         ]
+            ++ subMenuHtml
+        )
 
 
-addMenuItem addMenuItemType =
+labelsHtml : Labels.Label -> Html.Html AppMsg.Msg
+labelsHtml label =
+    Html.li [] [ Html.a [ Attributes.href "" ] [ icon "fas fa-tag", Html.text label.label ] ]
+
+
+addLabelMenuHtml =
     Html.li []
         [ Html.a
             [ Attributes.href ""
             , Bulma.hasTextLinkClass
-            , Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleAddMenu addMenuItemType))
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleAddLabelMenu)
             ]
             [ Html.span [ Bulma.iconClass ]
                 [ Html.i [ Attributes.class "fas fa-plus" ] [] ]
@@ -101,87 +198,178 @@ addMenuItem addMenuItemType =
         ]
 
 
-addSubItems : Maybe Menu.AddMenuItem -> Dict.Dict String Menu.MenuItem -> List (Html.Html AppMsg.Msg)
-addSubItems addItem subItems =
+labelsMenuHtml : AppModel.Model -> Html.Html AppMsg.Msg
+labelsMenuHtml model =
+    let
+        spanLabelsHtml =
+            if
+                model.menu.labels.spanLabelsIsOpen
+                    && not (List.isEmpty model.spanLabels)
+            then
+                [ Html.ul
+                    []
+                    (model.spanLabels
+                        |> List.map (\(Labels.SpanLabel label) -> label)
+                        |> List.map labelsHtml
+                    )
+                ]
+
+            else
+                []
+
+        relationLabelsHtml =
+            if
+                model.menu.labels.relationLabelsIsOpen
+                    && not (List.isEmpty model.relationLabels)
+            then
+                [ Html.ul []
+                    (model.relationLabels
+                        |> List.map (\(Labels.RelationLabel label) -> label)
+                        |> List.map labelsHtml
+                    )
+                ]
+
+            else
+                []
+
+        documentLabelsHtml =
+            if
+                model.menu.labels.documentLabelsIsOpen
+                    && not (List.isEmpty model.documentLabels)
+            then
+                [ Html.ul []
+                    (model.documentLabels
+                        |> List.map (\(Labels.DocumentLabel label) -> label)
+                        |> List.map labelsHtml
+                    )
+                ]
+
+            else
+                []
+
+        subMenuHtml =
+            if model.menu.labels.isOpen then
+                [ Html.ul
+                    []
+                    [ addLabelMenuHtml
+                    , Html.li
+                        []
+                        ([ Html.a
+                            [ Attributes.href ""
+                            , Events.onClick (AppMsg.MenuMsg Menu.ToggleSpanLabelsMenu)
+                            ]
+                            [ icon "fas fa-highlighter"
+                            , Html.text "span labels"
+                            ]
+                         ]
+                            ++ spanLabelsHtml
+                        )
+                    , Html.li
+                        []
+                        ([ Html.a
+                            [ Attributes.href ""
+                            , Events.onClick (AppMsg.MenuMsg Menu.ToggleRelationLabelsMenu)
+                            ]
+                            [ icon "fas fa-link"
+                            , Html.text "relation labels"
+                            ]
+                         ]
+                            ++ relationLabelsHtml
+                        )
+                    , Html.li
+                        []
+                        ([ Html.a
+                            [ Attributes.href ""
+                            , Events.onClick (AppMsg.MenuMsg Menu.ToggleDocumentsLabelMenu)
+                            ]
+                            [ icon "fas fa-file"
+                            , Html.text "document labels"
+                            ]
+                         ]
+                            ++ documentLabelsHtml
+                        )
+                    ]
+                ]
+
+            else
+                []
+    in
+    Html.li
+        []
+        ([ Html.a
+            [ Attributes.href ""
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleLabelsMenu)
+            ]
+            [ icon "fas fa-tags"
+            , Html.text "labels"
+            ]
+         ]
+            ++ subMenuHtml
+        )
+
+
+teamMemberHtml : User.User -> Html.Html AppMsg.Msg
+teamMemberHtml teamMember =
+    Html.li []
+        [ Html.a
+            [ Attributes.href "" ]
+            [ icon "fas fa-user", Html.text teamMember.email ]
+        ]
+
+
+addTeamMemberHtml =
+    Html.li []
+        [ Html.a
+            [ Attributes.href ""
+            , Bulma.hasTextLinkClass
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleAddTeamMemberMenu)
+            ]
+            [ Html.span [ Bulma.iconClass ]
+                [ Html.i [ Attributes.class "fas fa-plus" ] [] ]
+            , Html.text "add"
+            ]
+        ]
+
+
+teamMenuHtml : AppModel.Model -> Html.Html AppMsg.Msg
+teamMenuHtml model =
     let
         subMenuHtml =
-            Dict.foldr menuLink [] subItems
-    in
-    case addItem of
-        Just Menu.AddDocumentsMenuItem ->
-            [ Html.ul []
-                ([ addDocumentMenuItem ] ++ subMenuHtml)
-            ]
-
-        Just addMenuItemType ->
-            [ Html.ul []
-                ([ addMenuItem addMenuItemType ] ++ subMenuHtml)
-            ]
-
-        Nothing ->
-            if subMenuHtml == [] then
-                []
-
-            else
-                [ Html.ul [] subMenuHtml ]
-
-
-hasSubItems (Menu.MenuItem { subItems }) =
-    Dict.keys subItems == []
-
-
-menuLink : String -> Menu.MenuItem -> List (Html.Html AppMsg.Msg) -> List (Html.Html AppMsg.Msg)
-menuLink label menuItem previous =
-    let
-        (Menu.MenuItem { icon, isOpen, addItem, subItems }) =
-            menuItem
-
-        attributes =
-            [ Attributes.href ""
-            , Events.onClick (AppMsg.MenuMsg (AppMsg.ToggleMenuItem menuItem))
-            ]
-
-        aTag =
-            Html.a
-                attributes
-                [ Html.span [ Bulma.iconClass ]
-                    [ Html.i [ Attributes.class icon ] [] ]
-                , Html.text label
+            if model.menu.team.isOpen then
+                [ Html.ul
+                    []
+                    ([ addTeamMemberHtml ] ++ List.map teamMemberHtml model.teamMembers)
                 ]
-    in
-    previous
-        ++ [ aTag ]
-        ++ (if isOpen then
-                addSubItems addItem subItems
 
             else
                 []
-           )
-
-
-menuItemHtml : Dict.Dict String Menu.MenuItem -> Html.Html AppMsg.Msg
-menuItemHtml menuItems =
-    let
-        children =
-            Dict.foldr menuLink [] menuItems
     in
-    Html.li [] children
+    Html.li
+        []
+        ([ Html.a
+            [ Attributes.href ""
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleTeamMenu)
+            ]
+            [ icon "fas fa-users", Html.text "team" ]
+         ]
+            ++ subMenuHtml
+        )
 
 
 openMenu : AppModel.Model -> Html.Html AppMsg.Msg
 openMenu model =
-    Html.div [ Bulma.columnsClass ]
-        [ Html.div [ Bulma.columnClass ]
+    Html.div [ Bulma.columnsClass, Bulma.isGapless ]
+        [ Html.div [ Bulma.columnClass, Bulma.is11, Bulma.isClipped, Attributes.css [ Css.whiteSpace Css.noWrap ] ]
             [ Html.aside [ Bulma.menuClass ]
                 [ Html.ul [ Bulma.menuListClass ]
-                    [ menuItemHtml model.menu.documents
-                    , menuItemHtml model.menu.labels
-                    , menuItemHtml model.menu.team
+                    [ documentsMenuHtml model
+                    , labelsMenuHtml model
+                    , teamMenuHtml model
                     ]
                 ]
             ]
         , Html.div [ Bulma.columnClass, Bulma.isNarrowClass ]
-            [ Html.span [ Bulma.iconClass, Events.onClick (AppMsg.MenuMsg AppMsg.ToggleMenu), Bulma.isPulledRightClass, menuToggleHoverStyle ]
+            [ Html.span [ Bulma.iconClass, Events.onClick (AppMsg.MenuMsg Menu.ToggleMenu), Bulma.isPulledRightClass, menuToggleHoverStyle ]
                 [ Html.i [ Attributes.class "fas fa-angle-double-left" ] [] ]
             ]
         ]
@@ -191,7 +379,7 @@ closedMenu =
     Html.aside [ Bulma.menuClass ]
         [ Html.span
             [ Bulma.iconClass
-            , Events.onClick (AppMsg.MenuMsg AppMsg.ToggleMenu)
+            , Events.onClick (AppMsg.MenuMsg Menu.ToggleMenu)
             , menuToggleHoverStyle
             ]
             [ Html.i [ Attributes.class "fas fa-angle-double-right" ] [] ]
@@ -202,67 +390,76 @@ setMenu menuModel model =
     { model | menu = menuModel }
 
 
-toggleMenuItem : Menu.MenuItem -> String -> Menu.MenuItem -> Menu.MenuItem
-toggleMenuItem targetMenuItem _ menuItem =
-    case ( targetMenuItem, menuItem ) of
-        ( Menu.MenuItem target, Menu.MenuItem old ) ->
-            if target == old then
-                Menu.MenuItem { old | isOpen = not old.isOpen, subItems = Dict.map (toggleMenuItem targetMenuItem) old.subItems }
-
-            else
-                Menu.MenuItem { old | subItems = Dict.map (toggleMenuItem targetMenuItem) old.subItems }
-
-
-toggleMenu : Menu.Menu -> Menu.MenuItem -> Menu.Menu
-toggleMenu menuModel menuItem =
-    let
-        toggledDocuments =
-            Dict.map (toggleMenuItem menuItem) menuModel.documents
-
-        toggledTeam =
-            Dict.map (toggleMenuItem menuItem) menuModel.team
-
-        toggledLabels =
-            Dict.map (toggleMenuItem menuItem) menuModel.labels
-    in
-    { menuModel | documents = toggledDocuments, labels = toggledLabels, team = toggledTeam }
-
-
-toggleAddLabelModal model =
-    { model | showLabelModal = not model.showLabelModal }
-
-
+update : Menu.MenuMsg -> AppModel.Model -> ( AppModel.Model, Cmd AppMsg.Msg )
 update msg model =
     case msg of
-        AppMsg.ToggleAddMenu Menu.AddDocumentsMenuItem ->
-            ( model, Ports.upload (encode model) )
+        Menu.ToggleAddDocumentsMenu ->
+            ( model.menu
+                |> Menu.setUploadProgress 0.0
+                |> AppModel.asMenu model
+            , Ports.upload (encode model)
+            )
 
-        AppMsg.ToggleAddMenu Menu.AddLabelMenuItem ->
+        Menu.ToggleAddLabelMenu ->
             let
                 newAddLabelMenuModel =
                     AddLabelMenu.toggleIsOpen model.addLabelMenu
             in
             ( { model | addLabelMenu = newAddLabelMenuModel }, Cmd.none )
 
-        AppMsg.ToggleAddMenu Menu.AddTeamMemberMenuItem ->
+        Menu.ToggleAddTeamMemberMenu ->
             let
                 newAddTeamMemberMenu =
                     AddTeamMemberMenu.toggle model.addTeamMemberMenu
             in
             ( { model | addTeamMemberMenu = newAddTeamMemberMenu }, Cmd.none )
 
-        AppMsg.ToggleMenu ->
+        Menu.ToggleMenu ->
             let
                 newMenu =
                     model.menu |> (\m -> { m | isOpen = not m.isOpen })
             in
             ( { model | menu = newMenu }, Cmd.none )
 
-        AppMsg.ToggleMenuItem menuItem ->
-            ( model |> setMenu (toggleMenu model.menu (Debug.log "toggled" menuItem)), Cmd.none )
+        Menu.UploadProgress percent ->
+            if percent == 1.0 then
+                ( model.menu
+                    |> Menu.finishUpload
+                    |> AppModel.asMenu model
+                , Cmd.none
+                )
 
-        _ ->
-            ( model, Cmd.none )
+            else
+                ( model.menu
+                    |> Menu.setUploadProgress percent
+                    |> AppModel.asMenu model
+                , Cmd.none
+                )
+
+        Menu.OpenDocument document ->
+            ( model.editor |> Editor.setState Editor.Pending |> AppModel.asEditor { model | openDocument = Just document }
+            , AppSync.send
+                (AppMsg.EditorMsg << AppMsg.GetDocumentLinkResponse)
+                (AppMsg.GetDocumentLinkRequest document)
+            )
+
+        Menu.ToggleDocumentsMenu ->
+            ( model.menu |> Menu.toggleDocumentsMenu |> AppModel.asMenu model, Cmd.none )
+
+        Menu.ToggleLabelsMenu ->
+            ( model.menu |> Menu.toggleLabelsMenu |> AppModel.asMenu model, Cmd.none )
+
+        Menu.ToggleSpanLabelsMenu ->
+            ( model.menu |> Menu.toggleSpanLabelsMenu |> AppModel.asMenu model, Cmd.none )
+
+        Menu.ToggleRelationLabelsMenu ->
+            ( model.menu |> Menu.toggleRelationLabelsMenu |> AppModel.asMenu model, Cmd.none )
+
+        Menu.ToggleDocumentsLabelMenu ->
+            ( model.menu |> Menu.toggleDocumentLabelsMenu |> AppModel.asMenu model, Cmd.none )
+
+        Menu.ToggleTeamMenu ->
+            ( model.menu |> Menu.toggleTeamMenu |> AppModel.asMenu model, Cmd.none )
 
 
 menu : AppModel.Model -> Html.Html AppMsg.Msg

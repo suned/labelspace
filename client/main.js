@@ -61,18 +61,29 @@ import('./elm.compiled.js').then(function ({Elm}) {
       });
     };
 
-    const getTeam = function () {
+    const getLoginData = function () {
       const query = gql`
-        query getTeam {
+        query {
           getTeam {
             sub,
             email
+          }
+
+          getLabels {
+            label,
+            ref,
+            labelType
+          }
+
+          getDocuments {
+            ref,
+            name
           }
         }
       `;
       return appSyncClient.query(
         { query: query }
-      );
+      )
     };
 
     const loginSuccess = function (authenticationResult) {
@@ -88,11 +99,21 @@ import('./elm.compiled.js').then(function ({Elm}) {
             }
           }
         );
-        getTeam().then(function (result) {
+        getLoginData().then(function (result) {
             const team = result.data.getTeam
+            const documents = result.data.getDocuments
+            const labels = result.data.getLabels
+            const spanLabels = labels.filter(label => label.labelType == 'span')
+            const documentLabels = labels.filter(label => label.labelType == 'document')
+            const relationLabels = labels.filter(label => label.labelType == 'relation')
             app.ports.loginSuccess.send(
-              { token: idToken, team: team }
-            );
+              { token: idToken
+              , team: team
+              , documents: documents
+              , spanLabels: spanLabels
+              , documentLabels: documentLabels
+              , relationLabels: relationLabels
+              });
         });
     };
 
@@ -124,14 +145,47 @@ import('./elm.compiled.js').then(function ({Elm}) {
         });
     };
 
+    const getS3UploadPost = function () {
+      const query = gql`
+        query getS3UploadPost {
+          getS3UploadPost {
+            url,
+            fields
+          }
+        }
+      `;
+      return appSyncClient.query({query: query})
+    }
     const uploadHandler = function (data) {
         const node = document.getElementById(data.id);
         if (node === null) {
             return;
         }
-
-        const file = node.files[0];
-        console.log('upload file', file)
+        getS3UploadPost().then(result => {
+          const post = result.data.getS3UploadPost
+          const fields = JSON.parse(post.fields)
+          // ^^ necessary because the graphql response contains the
+          // AWSJSON type and appsync apparently doesn't parse it
+          // for us
+          var uploaded = 0.0;
+          for (var i = 0; i < node.files.length; i++) {
+            const file = node.files[i]
+            const formData = new FormData();
+            Object.keys(fields).forEach(key => {
+              formData.append(key, fields[key])
+            });
+            formData.append('file', file);
+            const options = {
+              method: 'POST',
+              mode: 'cors',
+              body: formData
+            };
+            fetch(post.url, options).then(result => {
+              uploaded += 1.0
+              app.ports.uploadProgress.send(uploaded / node.files.length)
+            });
+          }
+        });
     };
 
     const createLabel = function (labelType, label, id, operation) {
@@ -178,6 +232,26 @@ import('./elm.compiled.js').then(function ({Elm}) {
         )
       });
     };
+    const getDocumentLink = function(id, ref, operation) {
+      const query = gql`
+        query {
+          getDocumentLink(ref: "${ref}")
+        }
+      `;
+      appSyncClient.query({query: query }).then(result => {
+        const options = {
+          mode: 'cors'
+        }
+        fetch(result.data.getDocumentLink, options)
+          .then(response => response.text())
+          .then(html => {
+            app.ports.fromAppSync.send(
+              { id: id, msg: {operation: operation, data: html } }
+            );
+          });
+        });
+      };
+
     const toAppSyncHandler = function (idWithMsg) {
       const data = idWithMsg.msg.data
       const operation = idWithMsg.msg.operation
@@ -194,6 +268,9 @@ import('./elm.compiled.js').then(function ({Elm}) {
           break;
         case "InviteTeamMember":
           inviteTeamMember(id, data, operation);
+          break;
+        case "GetDocumentLink":
+          getDocumentLink(id, data, operation);
           break;
       }
     };

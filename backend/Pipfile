@@ -6,6 +6,7 @@ boto3 = "*"
 faunadb = "*"
 lib = {path = "../lib"}
 stringcase = "*"
+cloudconvert = "*"
 
 [dev-packages]
 ipython = "*"

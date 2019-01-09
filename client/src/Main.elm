@@ -58,7 +58,7 @@ init apiUrl url key =
                 (RegisterPage.Model key "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" username ConfirmUserPage.Initial)
                 (LoginPage.Model "" "" "" Nothing key LoginPage.Init)
-                (AppModel.initModel "" "" "" "" [] [] [] [])
+                (AppModel.initModel "" "" "" "" [] [] [] [] [])
 
         _ ->
             Model
@@ -67,7 +67,7 @@ init apiUrl url key =
                 (RegisterPage.Model key "" "" "" RegisterPage.Init)
                 (ConfirmUserPage.Model "" "" ConfirmUserPage.Initial)
                 (LoginPage.Model "" "" "" Nothing key LoginPage.Init)
-                (AppModel.initModel "" "" "" "" [] [] [] [])
+                (AppModel.initModel "" "" "" "" [] [] [] [] [])
     , case route of
         Route.App ->
             Nav.pushUrl key Route.loginRoute
@@ -106,18 +106,18 @@ setAppHomePageModel appHomeModel model =
     { model | appHomePageModel = appHomeModel }
 
 
+asAppModel =
+    AppModel.flip setAppHomePageModel
+
+
 checkToken : Model -> ( Model, Cmd Msg )
 checkToken model =
-    case model.loginPageModel.loginData of
-        Just loginData ->
-            let
-                newAppModel =
-                    model.appHomePageModel |> App.setLoginData loginData
-            in
-            ( model |> setAppHomePageModel newAppModel, Cmd.none )
-
-        Nothing ->
+    case model.appHomePageModel.token of
+        "" ->
             ( model, Nav.pushUrl model.key Route.loginRoute )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -176,7 +176,12 @@ update msg model =
                 ( loginModel, cmd ) =
                     LoginPage.update loginMsg model.loginPageModel
             in
-            ( model |> setLoginModel loginModel, Cmd.map (\m -> LoginPageMsg m) cmd )
+            case loginModel.loginData of
+                Just loginData ->
+                    ( model.appHomePageModel |> App.setLoginData loginData |> asAppModel (setLoginModel loginModel model), Cmd.map (\m -> LoginPageMsg m) cmd )
+
+                Nothing ->
+                    ( model |> setLoginModel loginModel, Cmd.map (\m -> LoginPageMsg m) cmd )
 
         AppHomePageMsg appHomeMsg ->
             let
@@ -201,6 +206,7 @@ subscriptions model =
         , Sub.map LoginPageMsg (Ports.loginFailure LoginPage.mapError)
         , Sub.map LoginPageMsg (Ports.newPasswordChallengeError (always LoginPage.NewPasswordError))
         , Sub.map LoginPageMsg (Ports.newPasswordRequired (always LoginPage.NewPasswordRequired))
+        , Sub.map AppHomePageMsg (Ports.uploadProgress (AppMsg.MenuMsg << Menu.UploadProgress))
         , Sub.map AppHomePageMsg (Porter.subscriptions AppSync.porterConfig)
         ]
 

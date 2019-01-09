@@ -1,3 +1,5 @@
+from lib.annotation_database import AnnotationDatabase
+
 from backend.dependencies import Dependencies
 from lib.immutable import Immutable
 
@@ -11,7 +13,7 @@ class Handler(Immutable):
         self.dependencies = dependencies
 
     @property
-    def annotation_database(self):
+    def annotation_database(self) -> AnnotationDatabase:
         organization_ref = self.get_organization_ref()
         organization = self.dependencies.database.get_organization(
             organization_ref

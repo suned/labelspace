@@ -1,4 +1,21 @@
-port module Ports exposing (confirmUser, confirmUserFailure, confirmUserSuccess, fromAppSync, login, loginFailure, loginSuccess, newPasswordChallenge, newPasswordChallengeError, newPasswordRequired, register, registerFailure, registerSuccess, toAppSync, upload)
+port module Ports exposing
+    ( confirmUser
+    , confirmUserFailure
+    , confirmUserSuccess
+    , fromAppSync
+    , login
+    , loginFailure
+    , loginSuccess
+    , newPasswordChallenge
+    , newPasswordChallengeError
+    , newPasswordRequired
+    , register
+    , registerFailure
+    , registerSuccess
+    , toAppSync
+    , upload
+    , uploadProgress
+    )
 
 import Json.Decode
 import Json.Encode
@@ -52,6 +69,9 @@ port newPasswordChallengeError : (String -> msg) -> Sub msg
 
 
 port newPasswordRequired : (() -> msg) -> Sub msg
+
+
+port uploadProgress : (Float -> msg) -> Sub msg
 
 
 port fromAppSync : (Json.Decode.Value -> msg) -> Sub msg
