@@ -16,7 +16,7 @@
     "apollo-link": "^1.0.3",
     "apollo-link-http": "^1.2.0",
     "aws-appsync": "^1.4.0",
-    "aws-sdk": "^2.141.0",
+    "aws-sdk": "^2.814.0",
     "graphql": "^0.11.7",
     "graphql-tag": "^2.5.0"
   },
